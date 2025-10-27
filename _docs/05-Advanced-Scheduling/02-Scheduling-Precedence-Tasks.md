@@ -1,355 +1,109 @@
-# Scheduling with Precedence Tasks
+# Scheduling Tasks with Precedence Relations
 
 ## Overview
-Tasks with precedence constraints must execute in a specific order, where some tasks cannot start until their predecessors complete.
 
-## Precedence Relationships
+When tasks have precedence constraints (dependencies), we need to modify task parameters before applying standard scheduling algorithms like RMS, DMS, or EDF.
 
-### Definition
-Task τⱼ has precedence over task τᵢ if τᵢ cannot start until τⱼ completes.
+### Goal
+Modify task parameters (ready times, deadlines) in order to respect precedence constraints so that standard schedulers can be used.
 
-Notation: τⱼ → τᵢ (τⱼ must complete before τᵢ starts)
+---
 
-### Precedence Graph
-Directed graph representing task dependencies:
-- **Nodes**: Tasks
-- **Edges**: Precedence constraints
-- **DAG**: Directed Acyclic Graph (assumed)
+## Modifying Task Parameters for RMS
 
-### Example
+### Rule for Ready Time
+
+For a precedence relationship: **T_i → T_j** (T_i precedes T_j)
+
+**R_j* ≥ Max(R_j, R_i*)**
+
+Where R_i* is the modified ready time of task T_i
+
+### Priority Requirement
+
+**Priority(T_i) > Priority(T_j)** (strictly greater)
+
+### Procedure
+
+1. Process tasks in **topological order** (respecting precedence graph)
+2. For each task, modify its ready time based on all its predecessors
+3. Assign priorities to ensure precedence relationships are respected
+
+---
+
+## RMS: Modifying Ready Times - Example
+
+### Initial Task Parameters
+
+**Precedence Graph:**
 ```
-τ₁ → τ₂
-τ₁ → τ₃
-τ₂ → τ₄
-τ₃ → τ₄
-```
-Task τ₄ cannot start until both τ₂ and τ₃ complete.
-
-## Precedence Constraints
-
-### Types of Precedence
-
-#### Simple Precedence
-τⱼ must complete before τᵢ starts.
-```
-Constraint: start_time(τᵢ) >= completion_time(τⱼ)
-```
-
-#### Timing Constraints
-- **Minimum separation**: Minimum time between tasks
-- **Maximum separation**: Maximum time between tasks
-- **Relative deadlines**: Deadline relative to predecessor completion
-
-### Task Characteristics
-```
-τᵢ = (rᵢ, Cᵢ, dᵢ, pred(τᵢ))
-```
-Where pred(τᵢ) is the set of predecessor tasks.
-
-## Scheduling Approaches
-
-### 1. Directed Graph Construction
-
-#### Build Dependency Graph
-```python
-def build_precedence_graph(tasks):
-    graph = {task: [] for task in tasks}
-    
-    for task in tasks:
-        for predecessor in task.predecessors:
-            graph[predecessor].append(task)
-    
-    return graph
+T1 → T2, T3
+T3, T4 → T5
 ```
 
-#### Topological Sorting
-Order tasks such that predecessors always come before successors.
+**Initial Parameters:**
 
-```python
-def topological_sort(graph):
-    # Kahn's algorithm
-    in_degree = {node: 0 for node in graph}
-    for node in graph:
-        for neighbor in graph[node]:
-            in_degree[neighbor] += 1
-    
-    queue = [node for node in in_degree if in_degree[node] == 0]
-    result = []
-    
-    while queue:
-        node = queue.pop(0)
-        result.append(node)
-        
-        for neighbor in graph[node]:
-            in_degree[neighbor] -= 1
-            if in_degree[neighbor] == 0:
-                queue.append(neighbor)
-    
-    return result
-```
+| Task | R_i | C_i | D_i |
+|---------|-----|-----|-----|
+| T1 | 0 | 1 | 5 |
+| T2 | 5 | 2 | 7 |
+| T3 | 0 | 2 | 5 |
+| T4 | 0 | 1 | 10 |
+| T5 | 0 | 3 | 12 |
 
-### 2. Priority Assignment
+### Modification Steps
 
-#### Priority Based on Topological Order
-Tasks earlier in topological order get higher priority.
+**Step 1: T1 (no predecessors)**
+- R₁* = R₁ = 0
 
-#### Static Priority Assignment
-```python
-def assign_priorities(tasks):
-    order = topological_sort(build_graph(tasks))
-    
-    for i, task in enumerate(order):
-        task.priority = len(order) - i  # Higher-duty tasks get higher priority
-```
+**Step 2: T2 (predecessor: T1)**
+- R₂* = Max(R₂, R₁*) = Max(5, 0) = 5
 
-### 3. Modified EDF
+**Step 3: T3 (predecessor: T1)**
+- R₃* = Max(R₃, R₁*) = Max(0, 0) = 0
 
-#### Precedence-Aware EDF
-- Priority based on earliest deadline among ready tasks
-- Task ready only when all predecessors complete
+**Step 4: T4 (no predecessors)**
+- R₄* = R₄ = 0
 
-```python
-def precedence_edf(tasks, current_time):
-    # Find ready tasks
-    ready = [t for t in tasks if is_ready(t, current_time)]
-    
-    if not ready:
-        return IDLE
-    
-    # Schedule earliest deadline first
-    return min(ready, key=lambda t: t.deadline)
+**Step 5: T5 (predecessors: T3狠, T4)**
+- R₅* = Max(R₅, R₃*, R₄*) = Max(0, 0, 0) = 0
 
-def is_ready(task, current_time):
-    # Check if all predecessors completed
-    return all(predecessor.completed for predecessor in task.predecessors)
-```
+### Modified Task Parameters
 
-## Precedence Task Model
+| Task | R_i* | C_i | D_i | Priority |
+|------|------|-----|-----|----------|
+| T1 | 0 | 1 | 5 | 3 |
+| T2 | 5 | 2 | 7 | 4 |
+| T3 | 0 | 2 | 5 | 2 |
+| T4 | 5 | 1 | 10 | 1 |
+| T5 | 5 | 3 | 12 | 0 |
 
-### Task Parameters
-```
-τᵢ = (Cᵢ, pred(τᵢ), succ(τᵢ), release_time, deadline)
-```
+### Priority Assignment
 
-Where:
-- **Cᵢ**: Execution time
-- **pred(τᵢ)**: Set of predecessors
-- **succ(τᵢ)**: Set of successors
-- **release_time**: Earliest start time
-- **deadline**: Latest completion time
+If all tasks in a connected component have the same period, they will have a **tie in priority** under RMS. We assign **additional priorities** to break the ties while respecting precedence.
 
-### Release and Completion
-- Task released when all predecessors complete
-- Cannot start before release time
-- Must complete by deadline
+---
 
-### Critical Path
-Longest path from source to sink task.
-- Minimum makespan
-- Determines overall completion time
+## Modifying Task Parameters for DMS
 
-## Scheduling Algorithms
+### Rules
 
-### List Scheduling
-Tasks listed in priority order, scheduled when possible.
+For precedence relationship: **T_i → T_j**
 
-#### Algorithm
-```python
-def list_scheduling(tasks):
-    schedule = []
-    time = 0
-    
-    # Sort by priority
-    sorted_tasks = sort_by_priority(tasks)
-    completed = set()
-    
-    while sorted_tasks:
-        ready = [t for t in sorted_tasks if can_start(t, completed)]
-        
-        if ready:
-            # Schedule highest priority ready task
-            task = ready[0]
-            schedule.append((task, time))
-            time += task.C
-            completed.add(task)
-            sorted_tasks.remove(task)
-        else:
-            time += 1  # Wait
-    
-    return schedule
+**Ready Time:**
+- **R_j* ≥ Max(R_j, R_i*)**
 
-def can_start(task, completed):
-    return all(p in completed for p in task.predecessors)
-```
+**Deadline:**
+- **D_j* ≥ Max(D_j, D_i*)**
 
-### Earliest Start Time (EST)
-Start each task as early as possible.
+**Priority:**
+- **Priority(T_i) > Priority(T_j)** (strictly greater)
 
-#### Algorithm
-```python
-def earliest_start_scheduling(tasks):
-    schedule = {}
-    
-    # Process in topological order
-    topo_order = topological_sort(tasks)
-    
-    for task in topo_order:
-        if not task.predecessors:
-            # No predecessors
-            start_time = task.release_time
-        else:
-            # Start after all predecessors complete
-            start_time = max(pred.completion_time 
-                            for pred in task.predecessors)
-        
-        task.start_time = start_time
-        task.completion_time = start_time + task.C
-        schedule[task] = (start_time, task.completion_time)
-    
-    return schedule
-```
+### Procedure
 
-### Latest Start Time (LST)
-Calculate latest start time to meet deadlines.
+1. Modify ready times (same as RMS)
+2. Modify deadlines in reverse topological order
+3. Assign priorities based on modified deadlines
 
-#### Algorithm
-```python
-def latest_start_scheduling(tasks):
-    schedule = {}
-    
-    # Process in reverse topological order
-    reverse_order = reversed(topological_sort(tasks))
-    
-    for task in reverse_order:
-        if not task.successors:
-            # No successors
-            latest_start = task.deadline - task.C
-        else:
-            # Finish before any successor must start
-            latest_start = min(succ.start_time 
-                              for succ in task.successors) - task.C
-        
-        # Adjust to release time
-        task.latest_start = max(task.release_time, latest_start)
-        schedule[task] = task.latest_start
-    
-    return schedule
-```
+**Source:** CprE 458/558: Real-Time Systems (Prof. G. Manimaran, Iowa State University)
 
-## Schedulability Analysis
-
-### Makespan Calculation
-Total time to complete all tasks considering precedence.
-
-```python
-def compute_makespan(schedule):
-    return max(task.completion_time for task in schedule)
-```
-
-### Critical Path Analysis
-```python
-def find_critical_path(tasks):
-    # Longest path through dependency graph
-    distances = {task: 0 for task in tasks}
-    
-    topo_order = topological_sort(tasks)
-    
-    for task in topo_order:
-        for successor in task.successors:
-            new_distance = distances[task] + task.C
-            if new_distance > distances[successor]:
-                distances[successor] = new_distance
-    
-    return max(distances.values())
-```
-
-### Feasibility Check
-Schedule is feasible if:
-1. All precedence constraints satisfied
-2. All deadlines met
-3. Resource constraints satisfied
-
-```python
-def is_feasible(schedule):
-    # Check precedence
-    for task in tasks:
-        for predecessor in task.predecessors:
-            if predecessor.completion_time > task.start_time:
-                return False
-    
-    # Check deadlines
-    for task in tasks:
-        if task.completion_time > task.deadline:
-            return False
-    
-    return True
-```
-
-## Multiprocessor Scheduling
-
-### Precedence on Multiple Processors
-Additional complexity: tasks can execute in parallel if no precedence constraint.
-
-### List Scheduling Heuristic
-```python
-def multiprocessor_list_scheduling(tasks, num_processors):
-    available_processors = list(range(num_processors))
-    processor_assignment = {}
-    
-    topo_order = topological_sort(tasks)
-    completed = set()
-    
-    for task in topo_order:
-        # Wait until ready
-        while not can_start(task, completed):
-            # Execute currently running tasks
-            run_current_tasks()
-        
-        # Assign to available processor
-        if available_processors:
-            processor = available_processors.pop(0)
-            assign_to_processor(task, processor)
-    
-    return processor_assignment
-```
-
-## Handling Timing Constraints
-
-### Minimum Separation
-```python
-def enforce_min_separation(task1, task2, min_sep):
-    # Ensure gap between tasks
-    if task2.start_time - task1.completion_time < min_sep:
-        task2.start_time = task1.completion_time + min_sep
-```
-
-### Maximum Separation
-```python
-def enforce_max_separation(task1, task2, max_sep):
-    # Tight constraint
-    if task2.start_time - task1.completion_time > max_sep:
-        # May violate precedence
-        return INFEASIBLE
-```
-
-## Practical Examples
-
-### Example: Task Chain
-```
-τ₁ (C=2) → τ₂ (C=3) → τ₃ (C=1) → τ₄ (C=2)
-
-Total makespan = 2 + 3 + 1 + 2 = 8
-```
-
-### Example: Parallel Paths
-```
-      ┌─ τ₂ (C=3) ─┐
-τ₁ ───┤             ├── τ₄ (C=2)
-      └─ τ₃ (C=2) ─┘
-
-Critical path: τ₁ → τ₂ → τ₄ = 2 + 3 + 2 = 7
-Total makespan = 7
-```
-
-## Sources
-- Lecture 8 - Scheduling_Precedence_Tasks.pdf

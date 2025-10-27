@@ -1,275 +1,232 @@
-# Overload Handling: Feedback-Control Based Scheduling
+# Feedback Control Based EDF Scheduling
 
-## Overview
-Feedback-control scheduling uses control theory principles to adaptively manage system resources and meet performance objectives under varying workloads.
+## Feedback Scheduling - Motivation
 
-## Control System Principles
-
-### Basic Feedback Loop
-```
-Reference Input → Controller → System → Output
-                       ↑                    ↓
-                       └── Feedback ─────────┘
-```
-
-### Application to Real-Time Scheduling
-- **Reference**: Desired performance metrics (miss ratio, utilization, etc.)
-- **Controller**: Scheduler that adjusts parameters
-- **System**: Real-time application with tasks
-- **Output**: Actual performance metrics
-- **Feedback**: Measured current performance
-
-## Control-Theoretic Scheduling
+One of the very successful areas in addressing performance in the presence of uncertainty (e.g., workload or fault) is that of **Robust Control**.
 
 ### Key Concepts
 
-#### Controlled Variables
-1. **Miss ratio**: Percentage of missed deadlines
-2. **Response time**: Task completion time
-3. **Utilization**: CPU usage
-4. **Quality of Service**: Application-specific metrics
+- **Feedback** of measured quantities to correct the behavior of a system has been a powerful concept
+- Made technological advances in applications such as **amplifiers and avionics**
+- Through concerted use of feedback control and its theoretical development, the concept has been used to deal with **uncertainty inherent in most systems**
 
-#### Control Parameters
-1. **Task priorities**: Static or dynamic adjustments
-2. **Execution frequencies**: Task period modifications
-3. **Quality settings**: Optional work allocation
-4. **Admission control**: Accept/reject new tasks
+### Important Note
 
-#### Disturbance
-- Workload variations
-- Execution time changes
-- Aperiodic arrivals
-- Mode transitions
+If a system characteristics is **known precisely**, then the feedback strategies are **not useful**; the **open-loop strategies will outperform** their feedback counterpart.
 
-### Proportional-Integral-Derivative (PID) Controller
+---
 
-#### Controller Design
+## Feedback Control Technique
+
+### Components
+
+A typical feedback control system is composed of:
+
+1. **Controller**
+2. **Plant to be controlled** (RT System)
+3. **Actuators**
+4. **Sensors**
+
+### Variables
+
+- **Controlled/regulated variable**: The quantity of the output that is measured and controlled/regulated
+- **Set point**: Represents the correct value of the controlled variable
+- **Error**: The difference between the current value of the controlled variable and the set point
+- **Manipulated/control variable**: The quantity that is varied by the controller so as to affect the value of the controlled/regulated variable
+
+---
+
+## Feedback System Operation
+
+The system is composed of a feedback loop as follows:
+
+1. The system **periodically measures** and compares the controlled variable to the set point to determine the error
+2. The controller **computes the required control** with the control function of the system based on the error
+3. The **actuators change the value** of the manipulated variable to control the system
+
 ```
-u(t) = Kₚ × e(t) + Kᵢ × ∫e(τ)dτ + Kₐ × de(t)/dt
+Set Point → Controller → Actuators → RT System → Sensors → Measured Variable (compared to Set Point)
+                ↑                                                     ↓
+                └────────────────────── Feedback Loop ────────────────┘
 ```
+
+---
+
+## FC-EDF (Feedback Control - EDF)
+
+### Task Model
+
+**Ti = (I, ET, AS, D)**
+
+- Each Ti has **logical versions**: **I** = (T₁, T₂, ... Tᵢₖ)
+- Each version has **different execution time**: **ET** = {ET₁, ET₂, ... ETᵢₖ}
+  - Suppose ET₁ ≥ ET₂ ≥ ... ≥ ETᵢₖ
+- Each version has **different accuracy**: **AS** = {A₁, A₂, ... Aᵢₖ}
+- Each task has a **soft deadline D** and a **start time S**
+- Different versions of a task are called **service levels**
+- A version with **longer execution time and better accuracy** is called a **higher service level**
+
+---
+
+## FC-EDF Variables
+
+### Set Point
+**Desired miss ratio**
+```
+miss ratio = (# missed tasks) / (# submitted tasks)
+```
+
+### Regulated/Measured Variable
+**Actual miss ratio**
+
+### Control Variable
+**Requested CPU utilization**
+```
+requested CPU utilization = execution time / (deadline - current time)
+```
+
+### Actuators
+1. **Server Level Controller**: Adjust service levels
+2. **Admission Controller**: Use if requirements are not satisfied
+   - If the requirements are not satisfied, use admission controller
+
+---
+
+## FC-EDF Schematic
+
+```
+┌─────────────────┐
+│   Set Point     │ (Desired miss ratio)
+└────────┬────────┘
+         │
+         v
+┌─────────────────┐
+│    Controller   │ (PID Controller)
+└────────┬────────┘
+         │
+         v
+┌─────────────────┐      ┌─────────────────┐
+│    Actuators    │──────│   RT System     │
+│ - Server Level  │      │   (Scheduler)   │
+│ - Admission     │      │                 │
+└─────────────────┘      └────────┬────────┘
+                                  │
+                                  v
+                         ┌─────────────────┐
+                         │    Sensors      │ (Measure miss ratio)
+                         └────────┬────────┘
+                                  │
+                                  v
+                         ┌─────────────────┐
+                         │  Feedback Loop  │
+                         └─────────────────┘
+```
+
+---
+
+## PID Parameters Tuning
+
+Approaches for tuning PID (Proportional-Integral-Derivative) parameters:
+
+1. **Simulation experiments**
+2. **Modeling analysis**
+3. **Adaptive control** to tune the parameters on-line
+
+**Reference:** C. Lu, J.A. Stankovic, G. Tao, and S.H. Son, "Design and Evaluation of a Feedback Control EDF Scheduling Algorithm," In Proc. Real-Time Systems Symp. pp.56-67, 1999.
+
+---
+
+## Feedback-Based (m,k)-RMS Scheduler
+
+### Task Model
+
+**T** = <c, p, m, k>
 
 Where:
-- **u(t)**: Control output (e.g., period change, priority adjustment)
-- **e(t)**: Error (reference - measured)
-- **Kₚ**: Proportional gain
-- **Kᵢ**: Integral gain
-- **Kₐ**: Derivative gain
+- **cᵢ**: Computation time
+- **pᵢ**: Period
+- **mᵢ**: Number of mandatory instances (out of k)
+- **kᵢ**: Window size
 
-#### Application Example
-**Regulating miss ratio**:
-```python
-miss_ratio_error = target_miss_ratio - measured_miss_ratio
+**Requirements:** Tasks should meet **mi deadlines for every ki consecutive instances**
 
-# Proportional term
-priority_boost = K_p * miss_ratio_error
+### Performance Index
 
-# Integral term (accumulates error)
-accumulated_error += miss_ratio_error
-priority_boost += K_i * accumulated_error
+#### Dynamic Failure Rate (DFR)
+For a task Ti, it is the **percentage of instances** of the task miss their (m,k) guarantee.
 
-# Adjust task priorities
-for task in tasks:
-    task.priority += priority_boost
+#### Marginal Quality Received (MQR)
+
+**MQRᵢ = (mᵢ - mᵢ') / (kᵢ - mᵢ)**
+
+Where:
+- **mᵢ**: The actual value used
+- **MQRᵢ**: Marginal Quality Received of task Ti
+
+**Goal:** To **maximize the quality** of tasks during overloading, **mᵢ'** is increased as much as possible
+
+### Feedback-Based Adaptive Scheduler Architecture
+
+```
+┌─────────────┐
+│  Set Point  │ (Target DFR)
+└──────┬──────┘
+       │
+       v
+┌─────────────┐     ┌bell───────────┐
+│ PI Controller│────>│  Actuator     │
+└─────────────┘     │ - Admission   │
+       ^            │ - Scheduler   │
+       │            └──────┬────────┘
+       │                   v
+       │            ┌─────────────┐
+       └────────────│    CPU      │
+                    └─────────────┘
+                    Submitted tasks
+                    ↓
+                    Accepted tasks
+                    ↓
+                    Average Dynamic Failure Rate (feedback)
 ```
 
-### PI Controller for Utilization
+---
 
-#### Problem
-Regulate CPU utilization to target value (e.g., 0.75) by adjusting task periods.
+## Key Advantages of Feedback Control
 
-#### Controller Design
-```
-U_error(k) = U_target - U_measured(k)
-P_adjust(k) = P_adjust(k-1) + K_p × U_error(k) + K_i × ΣU_error
-T_new = T_nominal × (1 - P_adjust)
-```
+### Benefits
 
-#### Period Scaling
-- Scale periods proportionally
-- Higher utilization → longer periods (less frequent execution)
-- Lower utilization → shorter periods (more frequent execution)
+1. **Handles uncertainty**: Adapts to unpredictable workload variations
+2. **Dynamic response**: Automatically adjusts to maintain performance goals
+3. **Graceful degradation**: Manages overload conditions without complete failure
+4. **Quality trade-offs**: Allows sacrificing accuracy for timeliness during overload
 
-## Miss Ratio Control
+### Comparison to Open-Loop
 
-### Objective
-Maintain miss ratio below threshold while maximizing quality.
+| Aspect | Open-Loop | Feedback Control |
+|--------|-----------|-----------------|
+| **Uncertainty handling** | Poor | Excellent |
+| **Known characteristics** | Better | Unnecessary |
+| **Overload handling** | Fixed | Adaptive |
+| **Accuracy** | Fixed | Variable (trade-off) |
 
-### Control Strategy
-1. **Monitor miss ratio**: Measure over sliding window
-2. **Calculate error**: M_target - M_measured
-3. **Adjust quality**: Reduce optional work when overloaded
-4. **Track history**: Use integral term to eliminate steady-state error
+---
 
-### Implementation
-```python
-class MissRatioController:
-    def __init__(self, K_p, K_i, target_miss_ratio=0.05):
-        self.K_p = K_p
-        self.K_i = K_i
-        self.target = target_miss_ratio
-        self.integral = 0
-        self.window = []
-    
-    def update(self, missed, total):
-        miss_ratio = missed / total if total > 0 else 0
-        self.window.append(miss_ratio)
-        if len(self.window) > WINDOW_SIZE:
-            self.window.pop(0)
-        
-        # Average over window
-        avg_miss_ratio = sum(self.window) / len(self.window)
-        
-        # Error
-        error = self.target - avg_miss_ratio
-        
-        # Control output
-        integral += error
-        control = self.K_p * error + self.K_i * integral
-        
-        # Adjust quality (decrease quality to reduce miss ratio)
-        quality_factor = 1.0 - control
-        quality_factor = max(0.5, min(1.0, quality_factor))
-        
-        return quality_factor
-```
+## Summary
 
-## Adaptive Period Adjustment
+### Feedback Control Approach
 
-### Motivation
-Adjust task execution frequencies based on workload to maintain schedulability.
+1. **Measure** actual performance (miss ratio, DFR)
+2. **Compare** to desired target (set point)
+3. **Compute** error
+4. **Adjust** control variables (utilization, service levels, admission)
+5. **Actuate** changes to the system
+6. **Repeat** periodically
 
-### Two-Layer Control
+### Applications
 
-#### Inner Loop: Period Controller
-```
-Maintains target utilization per task:
-- Monitors task utilization U_i
-- Adjusts period T_i inversely proportional to load
-```
+- **FC-EDF**: Feedback Control with Earliest Deadline First scheduling
+- **Feedback-based (m,k)-RMS**: Adaptive (m,k)-firm guarantee enforcement
+- **Quality of Service**: Trade-off between accuracy and timeliness during overload
 
-#### Outer Loop: Global Controller
-```
-Maintains global system utilization:
-- Monitors overall utilization
-- Adjusts all periods proportionally
-- Ensures bounded miss ratio
-```
+**Source:** CprE 458/558: Real-Time Systems (Prof. G. Manimaran, Iowa State University)
 
-### Implementation
-```python
-def adjust_periods(tasks, target_utilization=0.90):
-    # Measure current utilization
-    current_util = sum(task.C / task.T for task in tasks)
-    
-    if current_util > 1.0:  # Overload
-        # Scale periods to reduce utilization
-        scale_factor = target_utilization / current_util
-        
-        for task in tasks:
-            # Increase period (reduce frequency)
-            task.T = task.T / scale_factor
-            
-    elif current_util < 0.7:  # Underutilization
-        # Scale periods to increase utilization
-        scale_factor = 0.9 / current_util
-        
-        for task in tasks:
-            # Decrease period (increase frequency)
-            task.T = task.T / scale_factor
-```
-
-## Quality-Based Feedback
-
-### Imprecise Computation with Feedback
-- Mandatory work always completes
-- Optional work adjusted based on system state
-- Feedback controller selects quality level
-
-### Quality Levels
-```
-Quality 0: Mandatory only (minimal)
-Quality 1: Mandatory + Basic optional
-Quality 2: Mandatory + Extended optional
-Quality 3: Mandatory + Full optional (maximum)
-```
-
-### Controller Action
-```python
-def select_quality(tasks, controller):
-    miss_ratio = compute_miss_ratio(tasks)
-    quality = controller.update(miss_ratio)
-    
-    # Map quality to execution modes
-    for task in tasks:
-        if quality >= 0.9:
-            task.mode = FULL_QUALITY
-        elif quality >= 0.7:
-            task.mode = HIGH_QUALITY
-        elif quality >= 0.5:
-            task.mode = BASIC_QUALITY
-        else:
-            task.mode = MANDATORY_ONLY
-```
-
-## Admission Control
-
-### Feedback-Based Admission
-- Monitor system performance continuously
-- Admit new tasks only if system remains stable
-- Reject tasks when overload likely
-
-### Admission Control Algorithm
-```python
-def admit_task(new_task, current_tasks, controller):
-    # Predict utilization with new task
-    predicted_util = current_utilization
-    predicted_util += new_task.C / new_task.T
-    
-    # Check miss ratio with controller
-    miss_ratio = controller.current_value
-    
-    if predicted_util < 1.0 and miss_ratio < target:
-        return ADMIT
-    elif predicted_util < 0.95 and miss_ratio < target + margin:
-        return ADMIT  # Small margin
-    else:
-        return REJECT
-```
-
-## Stability and Performance
-
-### Stability Analysis
-- Ensure controller stable (doesn't oscillate)
-- Tune gains (K_p, K_i, K_d) appropriately
-- Consider system delays and lag
-
-### Performance Metrics
-1. **Response time**: How quickly system adapts
-2. **Steady-state error**: Final offset from target
-3. **Overshoot**: Maximum deviation during transient
-4. **Settling time**: Time to reach steady state
-
-### Gain Tuning
-- **K_p**: Reacts to current error (fast but may oscillate)
-- **K_i**: Eliminates steady-state error (slow)
-- **K_d**: Dampens oscillations (may amplify noise)
-
-## Practical Considerations
-
-### Sensor/Actuator Delays
-- Measurement delays affect stability
-- Actuation delays reduce responsiveness
-- Must account for in controller design
-
-### Noise and Jitter
-- Measurement noise
-- Control signal smoothing
-- Filtering techniques
-
-### Multi-Objective Control
-- Balance multiple metrics
-- Weighted objectives
-- Pareto optimization
-
-## Sources
-- Lectrue 10 - Overload handling -- Feedback-control based scheduling-1.pdf

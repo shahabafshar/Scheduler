@@ -1,272 +1,254 @@
-# Real-Time LAN: CANbus
+# Controller Area Network (CAN Bus)
 
-## Overview
-Controller Area Network (CANbus) is a robust, distributed real-time communication protocol designed for embedded systems in automotive and industrial applications.
+## Introduction
 
-## CAN Protocol Fundamentals
+Controller Area Network (CAN) is a fast serial bus designed to provide an efficient and reliable link between sensors and actuators.
 
-### Purpose
-- Serial communication protocol
-- Multi-master bus
-- Message-based communication
-- Priority-based arbitration
-- Fault-tolerant design
+### Key Advantages
+- **Low cost**
+- **Handles high sensor data volumes** with minimal latency
+- **Supports integration** of advanced control systems, sensors, actuators, etc.
+- **Real-time deterministic** communication
 
-### Applications
-- Automotive systems
-- Industrial automation
-- Medical devices
-- Aircraft systems
+---
 
-## CAN Bus Topology
+## Technical Specifications
 
 ### Physical Layer
-- **Bus structure**: Linear bus topology
-- **Media**: Twisted pair cable
-- **Termination**: 120Ω resistors at both ends
-- **Nodes**: Connected via CAN transceiver
+- Uses a **twisted pair cable** (dual-wire: CAN High and CAN Low)
+- Communicate at speeds **up to 8Mbit/s** (max)
+- **Up to 255 devices** on a single network
+- Supports **multiple data rates** – high data rate bus, low data rate bus
 
-### Electrical Characteristics
-- **Dominant bit**: 0 (driven to GND)
-- **Recessive bit**: 1 (pulled high)
-- **Bitwise arbitration**: Dominant wins
-- **Differential signaling**: Noise immunity
+### Standard
+- **CAN Layered ISO 11898 Standard** (conforming to OSI model)
+- Developed by **BOSCH**
+- Multi-master, message broadcast system
+- Maximum signaling rate: **1 megabit per second** (bps) typically
 
-## CAN Message Frame
+---
 
-### Frame Types
+## CAN Features
 
-#### Standard Frame (11-bit identifier)
-```
-[SOF][11-bit ID][RTR][IDE][r0][DLC][DATA][CRC][ACK][EOF][IFS]
-```
+1. **Any node can access the bus** when the bus is quiet
 
-#### Extended Frame (29-bit identifier)
-```
-[SOF][11-bit ID][SRR][IDE][18-bit ID][RTR][r0][DLC][DATA][CRC][ACK][EOF][IFS]
-```
+2. **Non-destructive bit-wise arbitration** to allow 100% use of the bandwidth without loss of data
 
-### Frame Fields
+3. **Variable message priority** based on 11-bit / 29-bit packet identifier
 
-#### Start of Frame (SOF)
-- 1 bit
-- Marks beginning of frame
+4. **Peer-to-peer and multi-cast reception**
 
-#### Identifier Field
-- 11 bits (standard) or 29 bits (extended)
-- **Used for arbitration and priority**
-- Lower value = higher priority
-- Also used as message ID
+5. **Automatic error detection, signaling and retries**
 
-#### Remote Transmission Request (RTR)
-- 1 bit
-- 0 = data frame
-- 1 = remote frame (request data)
+6. **Data packets**: 4 or 8 bytes long
 
-#### Identifier Extension (IDE)
-- 1 bit
-- 0 = standard frame (11-bit ID)
-- 1 = extended frame (29-bit ID)
+7. **#
+ynchronous communication** (Event Triggered)
 
-#### Data Length Code (DLC)
-- 4 bits
-- Indicates data field length (0-8 bytes)
+---
 
-#### Data Field
-- 0-8 bytes
-- Actual message payload
+## CAN Message Structure
 
-#### CRC Field
-- 15 bits
-- Cyclic Redundancy Check for error detection
+### Standard CAN Frame
+- **11-bit identifier**
 
-#### ACK Slot
-- 1 bit
-- Acknowledgment bit
-- Sent by receivers
+### Extended CAN Frame
+- **29-bit identifier**
 
-#### End of Frame (EOF)
-- 7 bits
-- Marks end of frame
+### Message Types/Frames
 
-#### Inter-Frame Space (IFS)
-- 3 bits
-- Minimum separation between frames
+1. **Data Frame**: Contains actual data
+2. **Remote Frame**: Used to request data from another node
+3. **Error Frame**: Special message that violates formatting rules
+4. **Overload Frame**: Used to request a delay between frames
 
-## Priority-Based Arbitration
+---
 
-### CSMA/CA Protocol
-- **Carrier Sense**: Nodes listen before transmitting
-- **Multiple Access**: Multiple nodes can access bus
-- **Collision Avoidance**: Non-destructive arbitration
+## Arbitration Mechanism
 
-### Arbitration Mechanism
-1. All nodes start transmitting simultaneously
-2. Each bit transmitted bit-by-bit
-3. Recessive bits overridden by dominant bits
-4. Losing nodes detect conflict and stop transmitting
-5. Winner continues to completion
+### How It Works
 
-### Arbitration Example
-```
-Node A: 0 1 0 1 1 0 1 0 1 0 1  (ID = 0x55A)
-Node B: 0 1 0 1 1 0 1 1 0 0 1  (ID = 0x56C)
-        ^ ^ ^ ^ ^ ^ ^
-       all match until bit 7...
-       Node A transmits 0 (dominant)
-       Node B transmits 1 (recessive)
-       Node B loses and stops
-       Node A continues
-```
+**Bit-Wise Non-Destructive Arbitration:**
+- If two messages are simultaneously sent over the CAN bus, the bus takes the **"logical AND"** of all of them
+- Message identifiers with the **lowest binary number** get the **highest priority**
+- Every device listens on the channel and **backs off** when it notices a mismatch between the bus's bit and its identifier's bit
 
-### Properties
-- Non-destructive arbitration
-- Deterministic priority ordering
-- Lower ID = higher priority
-- Predictable worst-case latency
+### Key Characteristics
 
-## Real-Time Characteristics
+**Priority Allocation:**
+- The **lower the binary message identifier number**, the **higher its priority**
+- An identifier consisting entirely of zeros is the **highest priority message** on a network
+- **Dominant bit** (logic-low) always overwrites **recessive bit** (logic-high)
 
-### Message Latency
+**Collision Resolution:**
+- Node sending a last identifier bit as a zero (dominant) while other nodes send a one (recessive) **retains control** of the CAN bus
+- Goes on to complete its message without destruction or corruption
 
-#### Components
-1. **Arbitration time**: Log(ID) bits
-2. **Frame transmission**: Data frame size
-3. **Propagation delay**: Bus physical delay
-4. **Queuing delay**: Waiting in transmit buffer
+---
 
-### Worst-Case Response Time
+## Inverted Logic
 
-#### Busy Period Analysis
-```
-Busy period = time during which higher priority messages being transmitted
-```
+### CAN Bus Logic
 
-#### Response Time Calculation
-```
-Rᵢ = Jᵢ + Cᵢ + Bᵢ + Σⱼ∈hp(i) (⌈(Rᵢ + Jⱼ)/Tⱼ⌉ × Cⱼ)
-```
+A fundamental CAN characteristic is the **opposite logic state** between the bus, and the driver input and receiver output:
 
-Where:
-- **Jᵢ**: Jitter (release time variation)
-- **Cᵢ**: Transmission time
-- **Bᵢ**: Blocking by lower priority messages
-- **hp(i)**: Higher priority messages
+- Normally, logic-high is associated with a "1"
+- Logic-low is associated with a "0"
+- **But not so on a CAN bus!**
 
-### Transmission Time
-```
-C = (55 + 10d + 3)/bit_rate
-```
+### Physical Implementation
 
-Where:
-- 55: Fixed overhead bits
-- 10d: Data bits (d = DLC × 8)
-- 3: Inter-frame space
-- bit_rate: CAN bit rate (e.g., 1Mbps)
+- **Logic-low = dominant** (transmitted)
+- **Logic-high = recessive** (default state)
+- CAN transceivers have driver input and receiver output pins passively pulled high internally
+- In the absence of any input, the device automatically defaults to a **recessive bus state**
 
-### Example Calculation
-```
-Message with 8 bytes @ 1Mbps:
-C = (55 + 10×64 + 3)/1000000
-C = 698/1000000 = 0.698 ms
-```
+---
+
+## Communication Protocol
+
+### CSMA/CD+AMP
+
+CAN uses a **carrier-sense, multiple-access protocol with collision detection and arbitration on message priority** (CSMA/CD+AMP):
+
+- **CSMA**: Each node on a bus must wait for a prescribed period of inactivity before attempting to send a message
+- **CD+AMP**: Collisions are resolved through **bit-wise arbitration**, based on a preprogrammed priority of each message in the identifier field
+
+### Arbitration Process
+
+Since every node on a bus takes part in writing every bit "as it is being written," an arbitrating node knows if it placed the logic-high bit on the bus.
+
+**Non-destructive**: The node winning arbitration just continues on with the message, without the message being destroyed or corrupted by another node.
+
+---
 
 ## Error Handling
 
-### Error Detection
+### Error Frame
 
-#### CRC Error
-- Mismatch in received CRC
-- Frame retransmitted
+- Special message that **violates the formatting rules** of a CAN message
+- Transmitted when a node detects an error in a message
+- Causes **all other nodes** in the network to send an error frame as well
+- The original transmitter then **automatically retransmits** the message
 
-#### Bit Error
-- Stuff bit error detected
-- Retransmission triggered
+### Error Counters
 
-#### ACK Error
-- No acknowledgment received
-- Transmission retransmitted
+- Elaborate system of error counters in the CAN controller
+- Ensures that a node **cannot tie up a bus** by repeatedly transmitting error frames
 
-#### Form Error
-- Invalid bit patterns
-- Frame considered invalid
+---
 
-### Error States
-1. **Error Active**: Normal operation, can transmit
-2. **Error Passive**: Limited transmission, no error flags
-3. **Bus Off**: No transmission, requires recovery
+## Applications
 
-### Error Recovery
-- Automatic retransmission
-- Error counter management
-- Bus-off recovery procedure
+### Intra-Vehicular Communication
 
-## Scheduling Analysis
+CAN bus is widely used in automotive systems for connecting various ECUs (Electronic Control Units):
+- Engine Control ECU
+- Transmission Control ECU
+- Brake Control ECU
+- Airbag Control ECU
+- Steering ECU
+- Body Control ECU
+- Lighting Control ECU
 
-### Schedulability Test
+### Industrial Applications
 
-#### Utilization Test
+- **Concrete State Monitor & Control System**
+- **MRI Cooling System**
+- **Tram Energy Recycle System**
+- **Industrial automation**
+
+### Real-Time Characteristics
+
+- **Deterministic message delivery**
+- **Predictable worst-case response times**
+- **Priority-based message ordering**
+- Essential for safety-critical applications
+
+---
+
+## Bus Topology vs Point-to-Point
+
+### Trade-off
+
+By introducing a **single bus** as the only means of communication (as opposed to point-to-point network):
+- ✅ **Circuit simplicity**
+- ❌ **Channel access complexity**
+
+### MAC Protocol
+
+Since two devices might want to transmit simultaneously, we need a **MAC (Medium Access Control) protocol** to handle the situation.
+
+**CAN Solution:** Uses a unique identifier for each outgoing message, where **the identifier of a message represents its priority**.
+
+---
+
+## Implementation Example
+
+### Hardware Components
+
+- **Raspberry Pi 3 Model B+**: Higher-level processing node
+- **Arduino UNO**: Sensor/actuator control node
+- **MCP2515 CANbus Transceiver Board**: Converts CAN messages to SPI signals (and vice versa)
+- **10kΩ Potentiometer Sensor**: Sensor input
+
+### Software Components
+
+- **Raspbian OS** (Linux & Python based) for RPi
+- **Arduino UNO IDE** (Code written in C)
+- **SocketCAN** Linux CANbus Driver Package
+- **Python Library** – canutils, cantools, PyQt5
+
+### Implementation Architecture
+
 ```
-U = Σ(Cᵢ/Tᵢ) ≤ U_bound
+┌─────────────┐
+│  Arduino    │
+│   UNO       │─── MCP2515 ───┐
+│  (Node A)   │                │
+└─────────────┘                │
+                               ├── CAN Bus (CAN_H, CAN_L)
+┌─────────────┐                │
+│ Raspberry   │                │
+│     Pi      │─── MCP2515 ───┘
+│  (Node B)   │
+└─────────────┘
 ```
 
-#### Response Time Test
-Compute worst-case response time and verify Rᵢ ≤ Dᵢ.
+**Features:**
+- Two-wire circuit comprising of CAN High and CAN Low
+- MCP2515 board converts CAN messages into SPI signals
+- Arduino programmed using C
+- Raspberry Pi programmed using Python (acts as HMI)
 
-### Blocking Time
-A message can be blocked by at most one lower priority message currently on bus.
+---
 
-```
-Bᵢ = max{Cⱼ | Pⱼ < Pᵢ AND τⱼ can be on bus when τᵢ released}
-```
+## Real-World Performance Characteristics
 
-### Priority Assignment
-Lower CAN identifier = higher priority
+### Advantages
 
-```
-Priority(τᵢ) = -CAN_IDᵢ
-```
+✅ **Robust noise immunity** and fault tolerance
+✅ **Deterministic real-time communication**
+✅ **Priority-based arbitration** ensures critical messages are delivered first
+✅ **Built-in error detection** and automatic retransmission
 
-## CAN Variants
+### Limitations
 
-### Classical CAN
-- Standard CAN protocol
-- Up to 1 Mbps
-- 11 or 29-bit identifiers
+❌ **Lacks data security and privacy** (unencrypted)
+❌ **Limited payload size** (4-8 bytes per message)
+❌ **Bus length limitations** based on data rate
 
-### CAN FD (Flexible Data-Rate)
-- Extended data field (up to 64 bytes)
-- Higher bit rates in data phase
-- Backward compatible with Classical CAN
+---
 
-### CAN XL
-- Extended payload capacity
-- Up to 2048 bytes
-- Non-backward compatible
+## Summary
 
-## Design Considerations
+CAN bus is an ideal solution for **real-time distributed control systems** where:
+- Deterministic communication is required
+- Multiple nodes need to share information
+- Priority-based message ordering is important
+- Cost-effective networking is needed
 
-### Message ID Assignment
-- Based on priority requirements
-- Lower ID for higher priority messages
-- Grouping by criticality
+The **non-destructive bit-wise arbitration** mechanism ensures that the highest priority messages always get through while maintaining 100% bandwidth utilization without data loss.
 
-### Bit Timing
-- Bit rate configuration
-- Propagation segment
-- Phase segments
-- Sample point optimization
+**Source:** CprE 4580/5580: Real-Time Systems (Prof. G. Manimaran, Iowa State University)
 
-### Network Topology
-- Linear bus for simplicity
-- Star topology with gateways
-- Ring topology (rarer)
-
-### Bandwidth Utilization
-- Keep utilization < 70% for safety margin
-- Account for error recovery overhead
-- Consider burst arrivals
-
-## Sources
-- Real-Time LAN -- CANbus.pdf
-- Introoduction to CAN BUS_(TI ).pdf

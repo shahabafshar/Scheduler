@@ -1,396 +1,353 @@
 # Fault-Tolerant Design Techniques
 
-## Overview
-Fault-tolerant design techniques enable systems to continue operating correctly in the presence of faults, critical for safety-critical real-time systems.
+## Fault Tolerant Strategies
 
-## Fault Models
+Fault tolerance in computer system is achieved through **redundancy** in hardware, software, information, and/or computations. Such redundancy can be implemented in **static, dynamic, or hybrid** configurations.
 
-### Transient Faults
-- Temporary malfunctions
-- Occur due to environmental conditions
-- Recovered by retry or time-out
-- Most common in hardware
+### Two Main Approaches
 
-### Permanent Faults
-- Persistent malfunctions
-- Require repair or redundancy
-- Component replacement needed
-- Persistent until fixed
+**Fault Masking:** Any process that prevents faults in a system from introducing errors.
+- Example: Error correcting memories and majority voting
 
-### Intermittent Faults
-- Occasional malfunctions
-- Unpredictable occurrence
-- May become permutation
-- Difficult to diagnose
+**Reconfiguration:** The process of eliminating faulty component from a system and restoring the system to some operational state.
 
-## Redundancy Strategies
+---
 
-### 1. Triple Modular Redundancy (TMR)
+## Reconfiguration Approach
 
-#### Concept
-Three identical modules execute same computation, with majority voting.
+### Steps in Reconfiguration
 
-#### Architecture
+**1. Fault Detection**
+- The process of **recognizing that a fault has occurred**
+- Required before any recovery procedure can be initiated
+
+**2. Fault Location**
+- The process of **determining where a fault has occurred**
+- Enables appropriate recovery to be initiated
+
+**3. Fault Containment**
+- The process of **isolating a fault**
+- Prevents effects of that fault from propagating throughout the system
+
+**4. Fault Recovery**
+- The process of **remaining operational** or regaining operational status via reconfiguration even in the presence of faults
+
+---
+
+## The Concept of Redundancy
+
+### Definition
+
+Redundancy is simply the addition of **information, resources, or time** beyond what is needed for normal system operation.
+
+### Types of Redundancy
+
+**1. Hardware Redundancy**
+- Addition of extra hardware
+- Purpose: detecting or tolerating faults
+
+**2. Software Redundancy**
+- Addition of extra software beyond what is needed to perform a given function
+- Purpose: detect and possibly tolerate faults
+
+**3. Information Redundancy**
+- Addition of extra information beyond light required to implement a given function
+- Example: Error detection codes
+
+**4. Time Redundancy**
+- Uses additional time to perform the functions of a system
+- Purpose: fault detection and often fault tolerance
+- **Tolerates transient faults**
+
+### Cost of Redundancy
+
+Redundancy can have very important impact on:
+- **Performance**
+- **Size**
+- **Weight**
+- **Power consumption**
+- **Reliability**
+
+---
+
+## Hardware Redundancy
+
+### Passive Techniques
+
+**Concept:** Use fault **masking**. Designed to achieve fault tolerance **without requiring any action** on the part of the system.
+
+**Mechanism:** Relies on voting mechanisms.
+
+**Example:** Triple Modular Redundancy (TMR)
+
+### Active Techniques
+
+**Concept:** Achieve fault tolerance by **detecting existence of faults** and performing some action to **remove faulty hardware** from the system.
+
+**Process:**
+- Fault detection
+- Fault location
+- Fault recovery
+
+**Approach:** Remove and replace faulty components with spares.
+
+### Hybrid Techniques
+
+**Concept:** Combine attractive features of both passive and active approaches.
+
+**Features:**
+- **Fault masking** used to prevent erroneous results from being generated
+- **Fault detection, location, and recovery** used to improve fault tolerance by removing faulty hardware and replacing with spares
+
+---
+
+## Hardware Redundancy - A Taxonomy
+
+### Passive Techniques
+- **Triple Modular Redundancy (TMR)**
+- **N-Modular Redundancy (NMR)**
+- **Duplication with Comparison**
+
+### Active Techniques (Standby Sparing)
+- **Hot standby** (Ready to take over immediately)
+- **Cold standby** (Must be initialized before use)
+- **Pair-and-a-Spare** (Two active components + spare)
+- **Watchdog timer** (Detects processor failures)
+
+### Hybrid Techniques
+- **NMR with Spares** (Combine voting with spares)
+- **Self-Purging Redundancy**
+- **Sift-Out Redundancy**
+- **Triple-Duplex Architecture**
+
+---
+
+## Triple Modular Redundancy (TMR)
+
+### Architecture
+
 ```
-Input → [Module₁] ─→┐
-      → [Module₂] ─→┤ Majority ─→ Output
-      → [Module₃] ─→┘ Voter
-```
-
-#### Voting Logic
-```python
-def majority_vote(output1, output2, output3):
-    votes = [output1, output2, output3]
-    
-    # Find most common output
-    from collections import Counter
-    vote_count = Counter(votes)
-    majority = vote_count.most_common(1)[0][0]
-    
-    return majority
-```
-
-#### Fault Tolerance
-- Can tolerate one module failure
-- No single point of failure
-- Fault masking
-
-#### Overhead
-- 3x computation resources
-- Voting logic overhead
-- Synchronization needed
-
-### 2. N-Modular Redundancy (NMR)
-
-#### Generalization of TMR
-- N modules instead of 3
-- Can tolerate ⌊(N-1)/2⌋ failures
-- More expensive but more robust
-
-#### Voting Rule
-```
-Correct if at least ⌈N/2⌉ modules agree
-```
-
-### 3. Duplex Systems
-
-#### Pair-and-Spare Architecture
-```python
-def duplex_system(input):
-    # Duplicate channels
-    output1 = channel1(input)
-    output2 = channel2(input)
-    
-    # Compare
-    if output1 == output2:
-        return output1
-    else:
-        # Mismatch detection
-        switch_to_backup()
-        return output2  # Or first available
-```
-
-#### Comparison and Detection
-- Detect faults by comparison
-- Switch to backup on mismatch
-- Requires agreement on decision
-
-### 4. Recovery Blocks
-
-#### Concept
-Primary block with acceptance test and recovery routine.
-
-#### Architecture
-```python
-def recovery_block(input):
-    # Try primary implementation
-    result1 = primary_block(input)
-    if acceptance_test(result1):
-        return result1
-    
-    # Recovery to alternate implementation
-    result2 = alternate_block(input)
-    if acceptance_test(result2):
-        return result2
-    
-    # Fallback
-    return fail_safe()
-```
-
-#### Acceptance Test
-- Check result validity
-- Range checks
-- Consistency checks
-- Plausibility checks
-
-### 5. N-Version Programming
-
-#### Concept
-N independently developed versions of same program.
-
-#### Development
-- Different teams
-- Different algorithms
-- Different tools
-- Independent development
-
-#### Execution
-```python
-def n_version_execution(input, n):
-    results = []
-    
-    for version in versions:
-        result = version.execute(input)
-        results.append(result)
-    
-    # Consensus
-    return consensus(results)
+Input 1 → MODULE 1 ┐
+Input 2 → MODULE 2 ├→ VOTER → Output
+Input 3 → MODULE 3 ┘
 ```
 
-#### Consensus Mechanisms
-- Majority voting
-- Byzantine agreement
-- Weighted voting
+### How It Works
 
-## Error Detection Techniques
+1. **Three identical modules** process the same input
+2. **Voter** compares the three outputs
+3. **Majority wins:** If any module fails, the other two provide correct output
+4. **Mask fault** without system action
 
-### 1. Watchdog Timers
+### Characteristics
 
-#### Concept
-Monitor system activity and detect hangs.
+- **Passive technique**: No fault detection/recovery needed
+- **Fault masking**: Automatically masks single fault
+- **Reliability:** System fails only if 2 or more modules fail simultaneously
+- **Cost:** 3x hardware
 
-#### Implementation
-```python
-class Watchdog:
-    def __init__(self, timeout):
-        self.timeout = timeout
-        self.last_kick = current_time()
-    
-    def kick(self):
-        self.last_kick = current_time()
-    
-    def check(self):
-        if current_time() - self.last_kick > self.timeout:
-            trigger_recovery()
-```
+### Limitation
 
-### 2. Checksums
+- **Cannot tolerate multiple faults** (two modules failing simultaneously)
 
-#### Data Integrity
-```python
-def compute_checksum(data):
-    checksum = 0
-    for byte in data:
-        checksum = (checksum + byte) % 256
-    return checksum
+---
 
-def verify_checksum(data, received_checksum):
-    computed = compute_checksum(data)
-    return computed == received_checksum
-```
+## Software Redundancy - To Detect Software Faults
 
-#### CRC
-- More sophisticated than simple sum
-- Detects more error patterns
-- Hardware implemented
+### Two Popular Approaches
 
-### 3. Consistency Checks
+**1. N-Version Programming (NVP)**
+- **Forward recovery scheme** - it masks faults
+- Multiple versions of the same task executed **concurrently**
+- Relies on **voting**
 
-#### Plausibility Checking
-```python
-def plausibility_check(value, min_val, max_val):
-    if min_val <= value <= max_val:
-        return True
-    else:
-        trigger_error("Value out of range")
-        return False
-```
+**2. Recovery Blocks (RB)**
+- **Backward error recovery scheme**
+- Versions of a task executed **serially**
+- Uses acceptance tests
 
-#### Invariant Checking
-```python
-def invariant_check(state):
-    assert state.balance >= 0, "Negative balance"
-    assert state.speed >= 0, "Negative speed"
-    assert len(state.queue) <= state.max_size, "Queue overflow"
-```
+### Comparison
 
-### 4. Assertions
-```python
-def critical_function(input):
-    assert input is not None
-    assert len(input) > 0
-    
-    result = compute(input)
-    
-    assert result is not None
-    assert result >= 0
-    
-    return result
-```
+| Aspect | N-Version Programming | Recovery Blocks |
+|--------|---------------------|----------------|
+| **Execution** | Parallel | Sequential |
+| **Recovery** | Forward (masking) | Backward |
+| **Mechanism** | Voting | Acceptance test |
+| **Performance** | Faster (parallel) | Slower (serial) |
+| **Resource usage** | Higher | Lower |
 
-## Error Recovery Techniques
+---
 
-### 1. Checkpointing
+## Hardware Redundancy Techniques Details
 
-#### Concept
-Periodically save system state.
+### Duplication with Comparison
 
-#### Implementation
-```python
-class CheckpointManager:
-    def __init__(self):
-        self.checkpoints = []
-    
-    def checkpoint(self, state):
-        self.checkpoints.append(state.copy())
-    
-    def rollback(self):
-        if self.checkpoints:
-            state = self.checkpoints.pop()
-            restore_state(state)
-```
+**Architecture:**
+- Two identical modules
+- Compare outputs
+- If outputs differ → fault detected
 
-#### Checkpoint Interval
-- More frequent = better recovery
-- More frequent = higher overhead
-- Balance needed
+**Uses:**
+- Fault detection (not tolerance)
+- Checker circuits
+- Less expensive than TMR
 
-### 维克. Roll-Forward Recovery
+### Hot Standby
 
-#### Transaction-Based
-```python
-def transaction_execution():
-    try:
-        begin_transaction()
-        # Execute operations
-        validate_all()
-        commit()
-    except:
-        rollback_transaction()
-```
+**Characteristics:**
+- **Backup unit runs synchronously** with primary
+- Ready to take over **immediately**
+- No initialization needed
 
-### 3. Graceful Degradation
+**Application:** Where fast recovery is critical
 
-#### Reduced Functionality
-```python
-def degraded_mode():
-    if primary_system_failed():
-        disable_non_essential_features()
-        enable_backup_modes()
-        # Continue with reduced capability
-```
+**Cost:** Continuous power for backup unit
 
-#### Modes
-- Full capability mode
-- Degraded mode
-- Safe mode
-- Emergency mode
+### Cold Standby
 
-### 4. Fail-Safe Design
+**Characteristics:**
+- Backup unit is **off or idle**
+- Must be **initialized before use**
+- Longer recovery time than hot standby
 
-#### Safe States
-- System enters safe configuration
-- No harm to environment
-- Shutdown if necessary
+**Application:** Where recovery time is less critical
 
-```python
-def fail_safe():
-    stop_all_actuators()
-    engage_brakes()
-    notify_operators()
-    initiate_shutdown()
-```
+**Cost:** Lower power consumption
 
-## Fault Containment
+### Pair-and-a-Spare
 
-### 1. Partitioning
+**Architecture:**
+- Two active components + one spare
+- Spare replaces failed component
+- Continue operation with remaining pair
 
-#### Isolation
-- Separate critical and non-critical components
-- Prevent fault propagation
-- Contain damage
+**Benefit:** Tolerates two sequential failures
 
-```python
-class PartitionedSystem:
-    def __init__(self):
-        self.partitions = {
-            'critical': [],
-            'normal': [],
-            'non_critical': []
-        }
-    
-    def execute(self, partition_name):
-        partition = self.partitions[partition_name]
-        # Isolated execution
-        return execute_partition(partition)
-```
+---
 
-### 2. Voting Windows
+## Hybrid Redundancy Techniques
 
-#### Temporal Isolation
-- Separate voting windows
-- Prevent interference
-- Independent evaluation
+### NMR with Spares
 
-### 3. Error Boundaries
+**Concept:** Combine N-Modular Redundancy with spares
 
-#### Domain Isolation
-- Separate execution domains
-- Fault domain boundaries
-- Protection mechanisms
+**How It Works:**
+1. Initial N modules with voting
+2. When module fails, spare replaces it
+3. Continue with N-module voting
 
-## Real-Time Considerations
+**Advantage:** Can tolerate multiple sequential failures
 
-### Timing Correctness
-- Fault tolerance must maintain timing
-- Recovery within deadline
-- Bounded fault detection time
+### Self-Purging Redundancy
 
-### Schedulability
-- Account for fault handling overhead
-- Recovery time in schedulability analysis
-- Checkpoint overhead
+**Concept:** Active voting combined with removal of failed units
 
-### Predictability
-- Deterministic fault handling
-- Bounded recovery time
-- Predictable degraded performance
+**Process:**
+1. All modules vote on results
+2. Failed modules excluded from system
+3. Continue with remaining good modules
 
-## Implementation Strategies
+### Sift-Out Redundancy
 
-### 1. Hardware Fault Tolerance
-- Redundant processors
-- Error detecting/correcting memory
-- Fault-tolerant buses
-- Redundant power supplies
+**Concept:** Sift out unreliable modules
 
-###  peripherals
-- Multiple sensors
-- Backup actuators
-- Redundant communication
+**Process:**
+1. Test all modules
+2. Identify and remove unreliable ones
+3. Use remaining high-reliability modules
 
-### 3. Software Fault Tolerance
-- Recovery blocks
-- N-version programming
-- Design diversity
-- Defensive programming
+### Triple-Duplex Architecture
 
-## Testing and Validation
+**Concept:** Combination of triplication and duplication
 
-### Fault Injection
-- Artificially introduce faults
-- Test fault handling
-- Validate recovery mechanisms
+**Architecture:**
+- Three pairs of modules
+- Each pair votes internally
+- Three pair outputs vote together
 
-### Stress Testing
-- High load conditions
-- Resource exhaustion
-- Boundary conditions
+---
 
-### Reliability Testing
-- Long duration testing
-- Accelerated life testing
-- Statistical analysis
+## Fault Detection and Recovery Mechanisms
 
-## Sources
-- Fault-Tolerant Design Techniques.pdf
+### Watchdog Timer
+
+**Purpose:** Detect processor failures
+
+**How It Works:**
+- Processor must reset timer periodically
+- If processor fails, timer expires
+- Timer triggers recovery action
+
+**Application:** Microcontrollers, embedded systems
+
+### Checkpoint/Restart
+
+**Concept:** Save system state periodically
+
+**Recovery:**
+- Restore to last checkpoint
+- Re-execute from checkpoint
+- Requires non-volatile storage
+
+### Roll-Back Recovery
+
+**Concept:** Maintain multiple checkpoints
+
+**Recovery:**
+- Roll back to earlier checkpoint if recovery fails
+- Progressive roll-back until successful
+
+---
+
+## Design Considerations
+
+### Cost vs. Reliability Trade-offs
+
+**More redundancy = Higher reliability BUT:**
+- Increased cost
+- Increased complexity
+- Increased power consumption
+- Decreased performance
+
+### Choosing the Right Technique
+
+Consider:
+- **Application requirements** (safety-critical level)
+- **Cost constraints**
+- **Size/weight limitations**
+- **Power budget**
+- **Recovery time requirements**
+- **Environment** (harsh vs. benign)
+
+### Fault Hypothesis
+
+Define:
+- **Maximum number of faults** to tolerate
+- **Fault types** (permanent, transient, intermittent)
+- **Fault locations** (which components can fail)
+
+---
+
+## Summary
+
+### Key Strategies
+
+1. **Fault Masking**: Prevent faults from causing errors (passive)
+2. **Reconfiguration**: Detect, locate, contain, and recover from faults (active)
+3. **Hybrid Approaches**: Combine both for optimal fault tolerance
+
+### Redundancy Types
+
+- **Hardware**: Extra components (TMR, standby systems)
+- **Software**: N-version programming, recovery blocks
+- **Information**: Error detection/correction codes
+- **Time**: Retry with re-execution
+
+### Common Techniques
+
+- **Passive**: TMR, NMR, duplication with comparison
+- **Active**: Hot/cold standby, pair-and-a-spare, watchdog timers
+- **Hybrid**: NMR with spares, self-purging redundancy
+
+**Source:** CprE 458/558: Real-Time Systems (Prof. G. Manimaran, Iowa State University)
+

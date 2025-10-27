@@ -1,259 +1,292 @@
-# FreeRTOS Tutorial - A Beginner's Guide
+# FreeRTOS Tutorial – A Beginner's Guide
 
-## Overview
-FreeRTOS (Free Real-Time Operating System) is a popular open-source real-time kernel for embedded systems. This guide covers fundamental concepts and practical usage.
+## Introduction to FreeRTOS
 
-## FreeRTOS Architecture
+### What is FreeRTOS?
 
-### Kernel Components
-- Task scheduler
-- Task management
-- Interrupt management
-- Resource management
-- Memory management
+**FreeRTOS** (Free Real-Time Operating System) is a popular, **open-source real-time operating system kernel** for embedded systems. It is designed to be **small, simple, and easy to use** while providing powerful features for real-time applications.
 
-### Task States
+### Official Resources
+
+- **Official Documentation**: https://www.freertos.org/Documentation/00-Overview
+- **FreeRTOS Kernel**: https://github.com/FreeRTOS/FreeRTOS-Kernel
+
+---
+
+## Key Features
+
+### Core Features
+- **Preemptive multitasking**: Tasks can be interrupted and resumed
+- **Cooperative multitasking**: Tasks voluntarily yield control
+- **Multiple scheduling algorithms**: Including priority-based
+- **Inter-task communication**: Queues, semaphores, mutexes
+- **Memory management**: Multiple heap allocation schemes
+- **Portable**: Runs on many different microcontrollers
+
+---
+
+## Basic Concepts
+
+### Tasks vs. Co-routines
+
+**Tasks:**
+- Each runs independently and has its own **stack**
+- Full API access
+- Preemptive/cooperative scheduling
+- Suitable for most applications
+
+**Co-routines:**
+- All share **one stack** (saves RAM)
+- Cooperative scheduling only
+- Macro-based implementation
+- Many usage restrictions
+- **Rarely used today**
+
+---
+
+## Task States
+
+### State Diagram
+
+**Task States:**
+1. **Running**: Currently executing on the CPU
+2. **Ready**: Ready to run but waiting for CPU time
+3. **Blocked**: Waiting for an event (delay, semaphore, etc.)
+4. **Suspended**: Explicitly suspended and won't run until resumed
+
+### State Transitions
 ```
-Running → Ready → Blocked → Suspended
-```
-- **Running**: Currently executing on CPU
-- **Ready**: Ready to run, waiting for CPU
-- **Blocked**: Waiting for event or time
-- **Suspended**: Explicitly suspended (not ready)
-
-## Task Creation
-
-### Basic Task Structure
-```c
-void TaskFunction(void *pvParameters) {
-    for(;;) {
-        // Task code here
-        // Block to allow other tasks
-        vTaskDelay(pdMS_TO_TICKS(100));
-    }
-}
-```
-
-### Creating Tasks
-```c
-xTaskCreate(
-    TaskFunction,      // Task function
-    "Task Name",       // Task name
-    configMINIMAL_STACK_SIZE,  // Stack size
-    NULL,              // Parameters
-    tskIDLE_PRIORITY + 1,  // Priority
-    &taskHandle        // Task handle
-);
-```
-
-## Task Priorities
-
-### Priority Levels
-- Higher priority number = higher priority
-- Configurable maximum priority
-- Lower priority tasks only run when higher priority tasks blocked
-
-### Priority Assignment
-```c
-// Low priority
-#define LOW_PRIORITY   1
-
-// Medium priority
-#define MEDIUM_PRIORITY 2
-
-// High priority
-#define HIGH_PRIORITY  3
-```
-
-### Priority Inversion
-FreeRTOS uses priority inheritance to prevent unbounded priority inversion.
-
-## Interrupt Management
-
-### ISR Restrictions
-ISR functions must be very short and use special API functions.
-
-### Standard ISR
-```c
-void IRQ_Handler(void) {
-    // ISR code
-    // Use FromISR API versions
-    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-    xSemaphoreGiveFromISR(xSemaphore, &xHigherPriorityTaskWoken);
-    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
-}
+Ready → (scheduled) → Running
+Running → (preemption) → Ready
+Running → (event wait) → Blocked
+Blocked → (event occurs) → Ready
+Running → (suspend) → Suspended
+Suspended → (resume) → Ready
 ```
 
-## Synchronization
-
-### Mutexes
-```c
-SemaphoreHandle_t xMutex = xSemaphoreCreateMutex();
-
-// Task taking mutex
-xSemaphoreTake(xMutex, portMAX_DELAY);
-// Critical section
-xSemaphoreGive(xMutex);
-
-// Different task
-xSemaphoreTake(xMutex, portMAX_DELAY);
-// Critical section
-xSemaphoreGive(xMutex);
-```
-
-### Binary Semaphores
-```c
-SemaphoreHandle_t xBinarySemaphore = xSemaphoreCreateBinary();
-
-// Task signaling
-xSemaphoreGive(xBinarySemaphore);
-
-// Task waiting
-xSemaphoreTake(xBinarySemaphore, portMAX_DELAY);
-```
-
-### Counting Semaphores
-```c
-SemaphoreHandle_t xCountingSemaphore = xSemaphoreCreateCounting(10, 0);
-
-// Multiple gives
-xSemaphoreGive(xCountingSemaphore);
-xSemaphoreGive(xCountingSemaphore);
-// Count = 2
-
-// Take twice
-xSemaphoreTake(xCountingSemaphore, portMAX_DELAY);
-xSemaphoreTake(xCountingSemaphore, portMAX_DELAY);
-```
-
-### Queues
-```c
-QueueHandle_t xQueue = xQueueCreate(10, sizeof(int));
-
-// Sending data
-int data = 42;
-xQueueSend(xQueue, &data, portMAX_DELAY);
-
-// Receiving data
-int receivedData;
-xQueueReceive(xQueue, &receivedData, portMAX_DELAY);
-```
-
-## Timing
-
-### Delays
-```c
-// Delay by ticks
-vTaskDelay(100);
-
-// Delay by milliseconds
-vTaskDelay(pdMS_TO_TICKS(100));
-
-// Delay until absolute time
-vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(100));
-```
-
-### System Tick
-FreeRTOS uses a periodic timer interrupt for scheduling.
-- Default tick rate: 1000 Hz (1ms)
-- Configurable in FreeRTOSConfig.h
-
-## Scheduling Policies
-
-### Preemptive Scheduling
-Default behavior - higher priority tasks preempt lower priority tasks.
-
-### Time Slicing
-Equal priority tasks share CPU time in round-robin fashion.
-
-### Co-operative Scheduling
-Can be enabled in FreeRTOSConfig.h - tasks must yield explicitly.
-
-## Memory Management
-
-### Heap Management
-FreeRTOS provides several heap implementations:
-- heap_1.c: Simple, deterministic
-- heap_2.c: Fragments but faster
-- heap_3.c: Standard malloc/free
-- heap_4.c: Minimal fragmentation
-- heap_5.c: Multiple memory regions
-
-## Schedulability Considerations
-
-### Priority Assignment
-Use rate monotonic or deadline monotonic for periodic tasks.
-
-### Stack Sizing
-- Monitor stack usage
-- Provide safety margin
-- Use FreeRTOS stack overflow detection
-
-### Determinism
-- Avoid dynamic memory allocation in real-time tasks
-- Use fixed-size buffers
-- Minimize ISR processing time
-
-## Best Practices
-
-### Task Design
-1. Keep tasks small and focused
-2. Block on events or delays
-3. Avoid busy-wait loops
-4. Use appropriate priorities
-
-### Resource Management
-1. Use mutexes for mutual exclusion
-2. Minimize critical section duration
-3. Use semaphores for signaling
-4. Avoid priority inversion
-
-### Debugging
-1. Enable stack overflow detection
-2. Use trace hooks
-3. Monitor CPU usage
-4. Check for deadlocks
+---
 
 ## Configuration
 
 ### FreeRTOSConfig.h
-Key configuration parameters:
+
+FreeRTOSConfig.h contains **all configuration options** for FreeRTOS:
+
 ```c
-#define configMAX_PRIORITIES       (5)
-#define configUSE_PREEMPTION       1
-#define configUSE_TIME_SLICING     1
-#define configUSE_IDLE_HOOK        1
-#define configUSE_TICK_HOOK        0
-#define configCHECK_FOR_STACK_OVERFLOW  2
+// Enable preemptive scheduling
+#define configUSE_PREEMPTION 1
+
+// Tick rate (Hz)
+#define configTICK_RATE_HZ ﺍ
 ```
 
-## Example Application
-
-### Multi-Task System
 ```c
-void setup(void) {
-    // Create tasks
-    xTaskCreate(task1, "Task1", 256, NULL, 1, NULL);
-    xTaskCreate(task2, "Task2", 256, NULL, 2, NULL);
+// Stack size for idle task
+#define configMINIMAL_STACK_SIZE (64)
+
+// Total heap size
+#define configTOTAL_HEAP_SIZE (64 * 1024)
+
+// Maximum number of priorities
+#define configMAX_PRIORITIES (10)
+
+// Enable mutexes
+#define configUSE_MUTEXES 1
+```
+
+---
+
+## Scheduling Algorithms
+
+### Fixed Priority Preemptive Scheduling
+
+**Configuration:** `configUSE_PREEMPTION = 1`
+
+**Behavior:**
+- Higher priority tasks **preempt** lower priority tasks
+- Same priority tasks **share CPU time** (Round Robin with time slice)
+
+### Fixed Priority Cooperative Scheduling
+
+**Configuration:** `configUSE_PREEMPTION = 0`
+
+**Behavior:**
+- Tasks voluntarily yield control using `taskYIELD()`
+- **No preemption**: Tasks run until they explicitly give up CPU
+
+### Time Slicing Scheduling
+
+**Behavior:**
+- Tasks with the same priority **share CPU time equally**
+- Tasks switch between these tasks at each tick interrupt
+
+---
+
+## Task Management
+
+### Priorities
+
+- `configMAX_PRIORITIES` defines the maximum priority level in FreeRTOSConfig.h
+- **Higher numbers = higher priority**
+
+### Task Function
+
+```c
+void ATaskFunction( void *pvParameters );
+```
+
+### Task Creation
+
+```c
+void vTaskFunction(void* pvParameters);
+
+TaskHandle_t xTaskHandle;
+
+int main(void) {
+    // Create a task
+    xTaskCreate(
+        vTaskFunction,              // Task function
+        "TaskName",                 // Task name
+        configMINIMAL_STACK_SIZE,   // Stack size
+        NULL,                       // Parameters passed to task
+        1,                          // Priority (0 = lowest)
+        &xTaskHandle                // Task handle
+    );
     
-    // Start scheduler
-    vTaskStartScheduler();
-}
-
-void task1(void *pvParameters) {
-    for(;;) {
-        // Task 1 work
-        vTaskDelay(pdMS_TO_TICKS(100));
-    }
-}
-
-void task2(void *pvParameters) {
-    for(;;) {
-        // Task 2 work
-        vTaskDelay(pdMS_TO_TICKS(50));
-    }
+    vTaskStartScheduler();  // Start the scheduler
+    ...
 }
 ```
 
-## Sources
-- CPRE4580-5580 FreeRTOS Tutorial – A Beginner's Guide.pdf
+### Task Handling
+
+**Task Deletion:**
+```c
+void vTaskDelete(TaskHandle_t pxTaskToDelete);
+vTaskDelete(xTaskHandle);  // Delete the task
+```
+
+**Task Suspension/Resumption:**
+```c
+vTaskSuspend(xTaskHandle);  // Suspend the task
+vTaskResume(xTaskHandle);   // Resume the task
+```
+
+**Priority Management:**
+```c
+vTaskPrioritySet(xTaskHandle, 2);  // Change priority
+```
+
+### Task Delays
+
+```c
+// Delay for a specific number of ticks
+vTaskDelay(pdMS_TO_TICKS(1000));  // Delay for 1000ms
+
+// Delay until a specific time
+TickType_t xLastWakeTime = xTaskGetTickCount();
+vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(100));
+```
+
+---
+
+## Interrupt Management
+
+### Interrupt Safe API
+
+FreeRTOS provides a set of **"Interrupt Safe" API functions** that can be safely called from within an Interrupt Service Routine (ISR).
+
+**Interrupt Safe API Implementation Files:**
+- `queue.c` - Core interrupt-safe queue and semaphore functions
+- `tasks.c` - Interrupt-safe task notification functions
+- `timers.c` - Interrupt-safe timer functions
+- `stream_buffer.c` - Interrupt-safe stream buffer functions
+
+### Key Points
+
+- **Only use FreeRTOS API functions ending with FromISR in ISRs**
+  - Examples: `xQueueSendFromISR`, `xSemaphoreGiveFromISR`
+- These are safe and fast for ISRs
+- Often needing an extra parameter for context switching
+
+---
+
+## FreeRTOS Kernel Installation
+
+### Kernel Repository
+- https://github.com/FreeRTOS/FreeRTOS-Kernel
+
+### Platform-Specific Files
+Each real-time kernel port contains three common files and **platform-specific files**. Find the associated architecture in portable folder of chip you use.
+
+### Platform Resources
+
+**Arduino:**
+- https://docs.arduino.cc/libraries/freertos/
+
+**ESP32:**
+- https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/system/freertos.html
+- https://github.com/espressif/esp-idf/tree/v5.5.1/components/freertos
+
+---
+
+## FreeRTOS EDF Scheduling Implementation
+
+### Overview
+
+FreeRTOS uses **fixed-priority scheduling** but lacks EDF support. EDF ensures better deadline adherence and resource utilization for real-time applications.
+
+### Task Structure for EDF
+
+```c
+typedef struct task {
+    int id;  // Task ID
+    int at;  // Arrival time
+    int et;  // Execution time
+    int pd;  // Period
+    int dd;  // Deadline
+} task;
+
+// Example task set
+task taskSet[] = {
+    {1, 0, 4, 12, 12},  // Task 1: 4 exec, 12 period, 12 ddl
+    {2, 0, 3, 9, 9},    // Task 2: 3 exec, 9 period, 9 ddl
+    {3, 0, 3, 6, 6}     // Task 3: 3 exec, 6 period, 6 ddl
+};
+```
+
+### Configuration
+
+```c
+// Enable EDF scheduler in FreeRTOSConfig.h
+#define configUSE_EDF_SCHEDULER 1
+
+// Create EDF task
+xTaskCreate_EDF(
+    vTaskFunction,              // Task function
+    "EDFTask",                  // Task name
+    configMINIMAL_STACK_SIZE,   // Stack size
+    NULL,                       // Parameters
+    1,                          // Default priority
+    &xEDFTaskHandle             // Task handle
+);
+```
+
+---
+
+## Summary
+
+### FreeRTOS Capabilities
+- ✅ Multiple scheduling algorithms (fixed priority, cooperative, time-slicing)
+- ✅ Task management (create, delete, suspend, resume)
+- ✅ Inter-task communication (queues, semaphores, mutexes)
+- ✅ Interrupt-safe APIs
+- ✅ Portable across many platforms
+
+### Use Cases
+- IoT systems where task timing is critical
+- Embedded systems requiring real-time guarantees
+- Systems where delays can cause failures or poor performance
+
+**Source:** CprE 4580/5580: Real-Time Systems (Prof. G. Manimaran, Iowa State University)
+

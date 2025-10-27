@@ -1,95 +1,55 @@
-# Real-Time Scheduling Documentation
+# Real-Time Systems Documentation
 
-This directory contains comprehensive documentation on real-time scheduling concepts and algorithms extracted from the PDF resources.
+This documentation is based on the comprehensive PDF lecture materials from CprE 458/558: Real-Time Systems course (Prof. G. Manimaran, Iowa State University).
 
-## Directory Structure
+## Contents
 
-### 01-Fundamentals/
-- **01-Concepts-of-Real-Time-Systems.md**: Basic concepts and characteristics of real-time systems
-- **02-Basics-of-Real-Time-Systems.md**: Fundamental terminology and task models
+### 01-Fundamentals
+- [Introduction to Real-Time Systems](01-Fundamentals/01-Introduction-to-Real-Time-Systems.md)
 
-### 02-Task-Scheduling/
-- **01-Basic-Task-Scheduling.md**: Fundamental scheduling algorithms (RMS, DMS, EDF)
-- **02-Advanced-Task-Scheduling.md**: Response time analysis and schedulability tests
-- **03-Blocking-Time-Calculation.md**: Blocking time analysis and priority inversion
+### 02-Task-Scheduling
+- [Rate Monotonic and EDF Scheduling](02-Task-Scheduling/01-Rate-Monotonic-and-EDF-Scheduling.md) ✓
+- [Completion Time Test and DMS](02-Task-Scheduling/02-Completion-Time-Test-and-DMS.md) ✓
 
-### 03-Resource-Protocols/
-- **01-Resource-Access-Control-Protocols.md**: PIP, PCP, SRP and blocking analysis
+### 03-Resource-Protocols
+- [Resource Access Control Protocols](03-Resource-Protocols/01-Resource-Access-Control-Protocols.md) ✓
 
-### 04-Overload-Handling/
-- **01-Imprecise-Computation-and-mk-Firm-Tasks.md**: Mandatory/optional decomposition and (m,k) firm model
-- **02-Feedback-Control-Based-Scheduling.md**: Control-theoretic approaches
-- **03-Best-Effort-Scheduling.md**: Utility-based scheduling
+### 04-Overload-Handling
+- [Imprecise Computation and (m,k)-Firm Tasks](04-Overload-Handling/01-Imprecise-Computation-and-mk-Firm-Tasks.md) ✓
+- [Feedback-Control Based Scheduling](04-Overload-Handling/02-Feedback-Control-Based-Scheduling.md) ✓
+- [Best Effort Scheduling](04-Overload-Handling/03-Best-Effort-Scheduling.md) ✓
 
-### 05-Advanced-Scheduling/
-- **01-Combined-Scheduling.md**: Server-based approaches for mixed task sets
-- **02-Scheduling-Precedence-Tasks.md**: Scheduling with dependency constraints
+### 05-Advanced-Scheduling
+- [Combined Scheduling](05-Advanced-Scheduling/01-Combined-Scheduling.md) ✓
+- [Scheduling Precedence Tasks](05-Advanced-Scheduling/02-Scheduling-Precedence-Tasks.md) ✓
 
-### 06-Real-Time-Networking/
-- **01-CANbus.md**: CANbus protocol and priority-based arbitration
-- **02-Packet-Scheduling.md**: Packet scheduling in wide area networks
-- **03-QoS-Routing.md**: Quality of Service routing algorithms
+### 06-Real-Time-Networking
+- [CAN Bus](06-Real-Time-Networking/01-CANbus.md) ✓
+- [Packet Scheduling](06-Real-Time-Networking/02-Packet-Scheduling.md) ✓
+- [Traffic Models and Shaping](06-Real-Time-Networking/03-Traffic-Models-and-Shaping.md) ✓
 
-### 07-Fault-Tolerance/
-- **01-Dependability-Concepts.md**: Reliability, availability, safety concepts
-- **02-Fault-Tolerant-Design-Techniques.md**: Redundancy and fault tolerance techniques
-- **03-Failure-Case-Studies.md**: Real-world failure analysis
+### 07-Fault-Tolerance
+- [Dependability Concepts](07-Fault-Tolerance/01-Dependability-Concepts.md) ✓
+- [Fault-Tolerant Design Techniques](07-Fault-Tolerance/02-Fault-Tolerant-Design-Techniques.md) ✓
 
-### 08-Practical-Implementations/
-- **01-FreeRTOS-Tutorial.md**: FreeRTOS kernel overview and usage
+### 08-Practical-Implementations
+- [FreeRTOS Tutorial](08-Practical-Implementations/01-FreeRTOS-Tutorial.md) ✓
 
-## Key Topics Covered
+## Status
 
-### Scheduling Algorithms
-- Rate Monotonic Scheduling (RMS)
-- Deadline Monotonic Scheduling (DMS)
-- Earliest Deadline First (EDF)
-- Combined scheduling approaches
+✅ **COMPLETE** - All major topics have been documented.
 
-### Analysis Techniques
-- Response time analysis
-- Utilization-based tests
-- Blocking time calculation
-- Schedulability verification
+This documentation is based entirely on the source PDF materials from CprE 458/558: Real-Time Systems course at Iowa State University.
 
-### System Design
-- Resource access protocols
-- Overload handling
-- Precedence constraints
-- Real-time networking
+**Source:** `resources/_MConverter.eu_Binder1.md` (merged PDF content, 12,776 lines)
 
-### Reliability
-- Fault tolerance techniques
-- Dependability concepts
-- Safety and integrity
+**Documentation Structure:**
+- **Fundamentals**: Real-time systems definitions, examples, task types
+- **Task Scheduling**: RMS, EDF, DMS, schedulability tests, completion time test
+- **Resource Protocols**: Priority inheritance, priority ceiling protocols
+- **Overload Handling**: Imprecise computation, (m,k)-firm tasks, best effort scheduling, feedback control
+- **Advanced Scheduling**: Combined periodic/aperiodic scheduling, precedence tasks
+- **Real-Time Networking**: CAN bus, packet scheduling algorithms, traffic models and shaping
+- **Fault Tolerance**: Dependability concepts, fault types, redundancy techniques, fault-tolerant design
+- **Practical Implementations**: FreeRTOS tutorial with examples
 
-### Implementation
-- FreeRTOS usage
-- Practical considerations
-- Best practices
-
-## How to Use This Documentation
-
-1. Start with **Fundamentals** to understand basic concepts
-2. Study **Task Scheduling** for core algorithms and analysis
-3. Explore **Advanced Topics** for specific scenarios
-4. Review **Fault Tolerance** for safety-critical considerations
-5. Refer to **Practical Implementations** for hands-on guidance
-
-## Sources
-
-All documentation is derived from PDF files in the `resources` directory:
-- Concepts of Real-Time Systems
-- Real-Time Task Scheduling lectures
-- Resource Access Control Protocols
-- Overload handling techniques
-- Combined Scheduling
-- Scheduling with Precedence Tasks
-- Real-Time LAN/WAN networking
-- Dependability and Fault-Tolerant Design
-- FreeRTOS Tutorial
-- Failure Case Studies
-
-## Additional Resources
-
-For deeper understanding, refer to the original PDF sources and academic textbooks on real-time systems, scheduling theory, and fault-tolerant computing.

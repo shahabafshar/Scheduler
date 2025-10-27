@@ -1,301 +1,203 @@
-# Combined Scheduling
+# Combined Scheduling of Periodic and Aperiodic Tasks
 
-## Overview
-Combined scheduling integrates multiple scheduling approaches to handle heterogeneous task sets with different characteristics and requirements.
+## Assumptions & Issues
 
-## Motivation
+### Assumptions
+- **RMS scheduling algorithm** used
+- All periodic tasks start at time t=0
+- Periodic tasks relative deadlines are equal to end of period
+- Arrival times of aperiodic tasks unknown
 
-### Task Heterogeneity
-Real systems contain:
-- **Periodic tasks**: Regular, predictable workload
-- **Aperiodic tasks**: Event-driven, unpredictable
-- **Sporadic tasks**: Random arrivals with minimum separation
-- **Mixed criticalities**: Different timing guarantees needed
+### Issues
+- **Schedulability of periodic tasks**
+- **Response time for aperiodic tasks**
+- **Implementation considerations**
 
-### Single Algorithm Limitations
-- RMS: Only handles periodic tasks
-- EDF: Requires utilization ≤ 1
-- Aperiodic servers: Limited for periodic tasks
+---
 
-## Server-Based Approaches
+## Background Scheduling Algorithm
 
-### Background Scheduling
+### Concept
+- **No server is created**
+- Aperiodic tasks are executed when there is **no periodic task** to execute
+- Simple, but **no guarantee** on aperiodic schedulability
 
-#### Concept
-- Periodic tasks scheduled using fixed priority (e.g., RMS)
-- Aperiodic tasks scheduled in background (lowest priority)
-- Background execution when no periodic tasks ready
-
-#### Implementation
-```python
-def background_scheduling():
-    # Periodic tasks have fixed priorities
-    periodic_ready = [t for t in periodic_tasks if t.is_ready()]
-    
-    if periodic_ready:
-        # Run highest priority periodic task
-        return max(periodic_ready, key=lambda t: t.priority)
-    else:
-        # Background execution for aperiodic tasks
-        if aperiodic_queue:
-            return aperiodic_queue.pop(0)  # FIFO
-        return IDLE
+### Architecture
+```
+Periodic tasks (RMS) → High priority Queue → CPU
+Aperiodic tasks (FIFO/EDF) → Low priority Queue → CPU
 ```
 
-#### Characteristics
-- Simple implementation
-- Poor aperiodic response time
-- Periodic tasks not affected
-- May starve aperiodic tasks
+### Key Idea
+During "holes" (idle time) in the periodic schedule, aperiodic tasks can be serviced.
 
-#### Schedulability
-- Periodic tasks analyzed with RMS
-- Aperiodic tasks have no guarantees
+---
 
-### Polling Server
+## Combined Scheduling
 
-#### Concept
-Periodic task that services aperiodic tasks at fixed intervals.
+### Server-Based Approach
+Creating a **periodic server** **T_s = (C_s, P_s)** for processing aperiodic workload.
 
-#### Server Parameters
-- **Period Tₛ**: Server activation period
-- **Capacity Cₛ**: Execution budget per period
-- **Priority Maybe**: Based on period (RMS)
+### How It Works
+1. Create one or more server tasks
+2. Aperiodic tasks are scheduled in the periodic server's time slots
+3. Server policy could be based on deadline, arrival time, or computation time
 
-#### Operation
-```python
-class PollingServer:
-    def __init__(self, period, capacity):
-        self.T = period
-        self.C = capacity
-        self.budget = 0
-        self.next_activation = period
-    
-    def activate(self):
-        # Refill budget
-        self.budget = self.C
-        invoked:
-        # Check for aperiodic tasks
-        if aperiodic_queue:
-            # Service aperiodic task
-            task = aperiodic_queue.pop(0)
-            execute(task, budget)
-            self.budget -= task.execution_time
-    
-    def deplete(self):
-        # Budget exhausted
-        self.budget = 0
-```
+### Server Algorithms
+All algorithms behave the same manner when there are enough aperiodic tasks to execute:
 
-#### Response Time
-- Worst-case depends on polling period
-- May serve instantaneously if polled at right time
-- Worst-case: Wait full polling period
+1. **Polling Server** (bandwidth non-preserving)
+2. **Deferrable Server** (bandwidth preserving)
+3. **Priority Exchange Server** (bandwidth preserving)
+4. **Sporadic Server** (bandwidth preserving)
 
-#### Schedulability
-Server treated as periodic task:
-```
-U_periodic + C_s/T_s ≤ U_bound
-```
+---
 
-### Sporadic Server
+## Polling Server
 
-#### Concept
-Server with replenishment of budget based on actual usage.
+### How It Works
+- A **periodic server task** is created
+- If there are no aperiodic tasks at an invocation of the server (as per RMS), the server **suspends itself** during its current period and gets invoked again at its next period
+- If there are enough aperiodic tasks in an invocation, it serves up to **C_s** capacity
+- The computation time allowance for the server is **replenished at the start of its period**
+- Include T_s in the task set and do schedulability test
 
-#### Key Idea
-- Budget replenished when used
-- Maintains long-term utilization bound
-- Better response than polling server
+### Characteristics
+- **Bandwidth non-preserving**: Unused server capacity is lost
+- **Poor response time** for aperiodic tasks
 
-#### Budget Management
-```python
-class SporadicServer:
-    def __init__(self, period, capacity):
-        self.T = period
-        self.C = capacity
-        self.budget = capacity
-        self.available = 0
-    
-    def replenish(self):
-        # Available budget
-        if not self.active:
-            self.available = self.budget
-    
-    def consume(self, amount):
-        # Use budget
-        self.available -= amount
-        self.replenish_time = current_time + self.T
-    
-    def replenishment_check(self):
-        # Check if ready to replenish
-        if current_time >= self.replenish_time:
-            self.available = self.budget
-```
+### Example
+**Task set:** T1 = (1,4), T2 = (2,6) and T_s = (2,5)
 
-#### Advantage Over Polling
-- Budget available immediately after use
-- No waiting for polling period
-- Better average response time
+**Behavior:**
+- Server becomes available periodically
+- If aperiodic task arrives when server is not active, it must wait
+- Server can only check for aperiodic tasks at its periodic invocation times
 
-#### Schedulability
-Similar to periodic task with period Tₛ and execution time Cₛ.
+---
 
-### Deferrable Server
+## Polling Server: Schedulability Analysis
 
-#### Concept
-Server maintains budget throughout its period until consumed.
+### Periodic Task Schedulability
+Schedulability of periodic tasks can be evaluated by introducing a periodic task equivalent to the server:
 
-#### Budget Conservation
-- Budget remains available after replenishment
-- Carried forward within period
-- Not consumed if not used
+**∑(i=1 to n) (C_i / P_i) + (C_s / P_s) ≤ (n+1)(2^(1/(n+1)) - 1)**
 
-#### Operation
-```python
-class DeferrableServer:
-    def __init__(self, period, capacity):
-        self.T = period
-        self.C = capacity
-        self.budget = capacity
-        self.priority = 1 / period  # RMS style
-    
-    def consume(self, amount):
-        self.budget -= amount
-    
-    def replenish(self):
-        self.budget = self.C
-```
+### Aperiodic Task Guarantees
 
-#### Characteristic
-- Maximum responsiveness for aperiodic tasks
-- Budget available throughout period
-- May interfere more with periodic tasks
+**Case 1: Simple Case**
+- Consider a single aperiodic task A_i arrived at r_a, with computation time C_a and deadline D_a
+- Since an aperiodic task can wait at most for **one period** before receiving service
+- If **C_a ≤ C_s**, the request is certainly completed within **two server periods**
+- Guaranteed if: **2通讯s ≤ D_a**
 
-### Total Bandwidth Server (TBS)
+**Case 2: Arbitrary Computation Times**
+- For arbitrary computation times, the aperiodic task is certainly completed in **⌈C_a/C_s⌉** server periods
+- Guaranteed if: **P_s + ⌈C_a/C_s⌉ × P_s ≤ D_a**
 
-#### Concept
-Assign deadline to aperiodic tasks based on bandwidth reservation.
+---
 
-#### Deadline Assignment
-```
-d_k = max(r_k, d_{k-1}) + C_k / U_s
-```
+## Deferrable Server
 
-Where:
-- d_k: Deadline for aperiodic task k
-- r_k: Release time
-- C_k: Execution time
-- U_s: Server utilization (C_s / T_s)
+### How It Works
+- A periodic server task is created
+- When the server is invoked with **no outstanding aperiodic tasks**, the server does **not execute** but **defers its assigned time slot**
+- When an aperiodic task arrives, the server is invoked (as per RMS) to execute aperiodic tasks and maintains its priority
+- The computation time allowance for the server is **replenished at the start of its period**
 
-#### Priority
-Aperiodic tasks scheduled by EDF using assigned deadlines.
+### Characteristics
+- **Bandwidth preserving**: Unused capacity is saved
+- Provides **better response time** for aperiodic tasks than Polling server
+- Under overload, deadlines are missed **predictably**
+- Similar schedulability test like polling server
 
-#### Properties
-- Optimal bandwidth allocation
-- Maintains bound on server utilization
-- Integrated with EDF scheduler
+### Key Advantage
+Server capacity is **immediately available** when aperiodic tasks arrive, rather than waiting for the next server invocation.
 
-## Integrated Scheduling
+---
 
-### RMS + Sporadic Server
+## Priority Exchange Server
 
-#### Approach
-- Periodic tasks use RMS priorities
-- Aperiodic tasks use sporadic server
-- Server has periodic priority
+### How It Works
+- A periodic server task is created
+- When the server invoked, the server runs if there are any outstanding aperiodic tasks
+- **If no aperiodic task exists**, the high priority server **exchanges its priority** with a lower priority periodic task for a duration of **C_s'**, where C_s' is the remaining computation time of the server
+- In this way, the priority of the server decreases, but its **computation time is maintained**
+- The computation time allowance for the server is replenished at the start of its period
 
-#### Example
-```python
-tasks = [
-    periodic_1: C=1, T=4,
-    periodic_2: C=2, T=8,
-    sporadic_server: C_s=1, T_s=5
-]
+### Characteristics
+- **Bandwidth preserving**: Server capacity is maintained through priority exchange
+- As a consequence, the aperiodic tasks get **low preference** for execution
+- Offers **worse response time** compared to Deferrable Server
+- **Better schedulability bound** for periodic task set compared to Deferrable Server
 
-priorities = RMS_priorities(tasks)
-```
+### Priority Exchange Mechanism
+- Server executes at high priority when serving aperiodic tasks
+- Server executes at low priority (exchanged) when no aperiodic tasks exist
+- Maintains bandwidth but reduces megatonness for aperiodic tasks
 
-#### Schedulability
-```
-U_p + C_s/T_s ≤ U_bound
-```
+---
 
-Where U_p is periodic task utilization.
+## Sporadic Server
 
-### EDF + TBS
+### Key Innovation
+This algorithm allows to **enhance the average response time** for aperiodic tasks **without degrading** the utilization bound for periodic task set.
 
-#### Approach
-- All tasks (periodic and aperiodic) scheduled by EDF
-- Aperiodic tasks get dynamically assigned deadlines
+### How It Works
+- Achieved by **varying the points at which the computation time of the server is replenished**, rather than merely at the start of each server period
+- Any **spare capacity** (i.e., not being used by periodic tasks) is available for an aperiodic task on its arrival
+- Server defers its capacity but replenishes at **current_time + period** when consumed
 
-#### Implementation
-```python
-def edf_tbs_schedule():
-    all_tasks = periodic_tasks + aperiodic_tasks
-    
-    # Assign deadlines to aperiodic tasks
-    for ap_task in new_aperiodic_tasks:
-        ap_task.deadline = max(ap_task.release, 
-                               last_dead++) + ap_task.C / U_s
-    
-    # EDF schedule all tasks
-    return min(all_tasks, key=lambda t: t.deadline)
-```
+### Characteristics
+- **Bandwidth preserving**
+- **Best response time** among the four server algorithms
+- Maintains the same utilization bound as RMS without servers
 
-#### Schedulability
-```
-Σ(C_i/T_i) for periodic + U_s ≤ 1
-```
+### Example
+**Task set:** T1 = (3,10), T2 = (4,15) and T_s = (2,8)
 
-## Adaptive Server Tuning
+**Behavior:**
+- Server has the highest priority
+- When no aperiodic task, server defers capacity
+- When aperiodic task arrives, server has capacity immediately available
+- Replenishment occurs at **current_time + P_s** after consumption
 
-### Load-Based Server Capacity
-Adjust server capacity based on aperiodic load.
+---
 
-```python
-def adapt_server_capacity(server, load_metric):
-    if load_metric > threshold_high:
-        # Increase server capacity
-        server.C = min(server.C_max, server.C + increment)
-    elif load_metric < threshold_low:
-        # Decrease server capacity
-        server.C = max(server.C_min, server.C - decrement)
-```
+## Server Comparison Summary
 
-### Priority Adjustment
-Adjust server priority based on backlog.
+| Server | Bandwidth Preserving | Response Time | Periodicity | Complexity |
+|--------|---------------------|---------------|-------------|-----------|
+| **Polling** | ❌ No | Poor | Periodic invocation only | Low |
+| **Deferrable** | ✅ Yes | Better | Immediate availability | Medium |
+| **Priority Exchange** | ✅ Yes | Worse | Low-priority when idle |`High |
+| **Sporadic** | ✅ Yes | Best | Immediate with dynamic replenishment | Highest |
 
-## Multi-Server Systems
+### Key Insights
+1. **Polling Server**: Simplest but worst response time
+2. **Deferrable Server**: Good balance of simplicity and performance
+3. **Priority Exchange**: Best for periodic task schedulability, worse for aperiodic response
+4. **Sporadic Server**: Best aperiodic response time, maintains RMS bounds
 
-### Multiple Servers
-Run multiple servers concurrently for different aperiodic classes.
+---
 
-```python
-servers = [
-    high_priority_server: C=2, T=10, priority=High,
-    low_priority_server: C=1, T=20, priority=Low
-]
-```
+## Summary
 
-### Server Hierarchy
-- Higher priority server for critical aperiodics
-- Lower priority server for best-effort aperiodics
-- Periodic tasks unaffected
+### All Four Algorithms
+- Behave **identically** when there are enough aperiodic tasks to execute
+- Differ in how they handle **idle periods** when no aperiodic tasks exist
+- Require including server in the periodic task set for schedulability analysis
 
-## Design Guidelines
+### Bandwidth Preservation
+- **Non-preserving**: Polling (capacity lost if unused)
+- **Preserving**: Deferrable, Priority Exchange, Sporadic (capacity maintained)
 
-### Selecting Server Type
-- **Background**: Simple, no guarantees
-- **Polling**: Simple, predictable, higher latency
-- **Sporadic**: Good balance, moderate complexity
-- **Deferrable**: Best responsiveness, higher interference
-- **TBS**: Optimal bandwidth, EDF integration
+### Response Time Ranking
+**Best to Worst:**
+1. Sporadic Server
+2. Deferrable Server
+3. Priority Exchange Server
+4. Polling Server
 
-### Server Parameter Selection
-- **Capacity**: Trade-off between periodic performance and aperiodic responsiveness
-- **Period**: Smaller period = better responsiveness = higher overhead
-- **Priority**: Based on period (RMS) for static priority
+**Source:** CprE 458/558: Real-Time Systems (Prof. G. Manimaran, Iowa State University)
 
-## Sources
-- Lecture 7 - Combined Scheduling.pdf
