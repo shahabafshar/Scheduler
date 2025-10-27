@@ -89,7 +89,7 @@ Schedulability of periodic tasks can be evaluated by introducing a periodic task
 - Consider a single aperiodic task A_i arrived at r_a, with computation time C_a and deadline D_a
 - Since an aperiodic task can wait at most for **one period** before receiving service
 - If **C_a ≤ C_s**, the request is certainly completed within **two server periods**
-- Guaranteed if: **2通讯s ≤ D_a**
+- Guaranteed if: **2P_s ≤ D_a**
 
 **Case 2: Arbitrary Computation Times**
 - For arbitrary computation times, the aperiodic task is certainly completed in **⌈C_a/C_s⌉** server periods
