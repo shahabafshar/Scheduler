@@ -5,11 +5,13 @@ This documentation is based on the comprehensive PDF lecture materials from CprE
 ## Contents
 
 ### 01-Fundamentals
-- [Introduction to Real-Time Systems](01-Fundamentals/01-Introduction-to-Real-Time-Systems.md)
+- [Introduction to Real-Time Systems](01-Fundamentals/01-Introduction-to-Real-Time-Systems.md) ✓
+- [Architectural Issues and Design Considerations](01-Fundamentals/02-Architectural-Issues-and-Design-Considerations.md) ✓
 
 ### 02-Task-Scheduling
 - [Rate Monotonic and EDF Scheduling](02-Task-Scheduling/01-Rate-Monotonic-and-EDF-Scheduling.md) ✓
 - [Completion Time Test and DMS](02-Task-Scheduling/02-Completion-Time-Test-and-DMS.md) ✓
+- [Blocking Time and Resource Sharing](02-Task-Scheduling/03-Blocking-Time-and-Resource-Sharing.md) ✓
 
 ### 03-Resource-Protocols
 - [Resource Access Control Protocols](03-Resource-Protocols/01-Resource-Access-Control-Protocols.md) ✓
@@ -44,12 +46,15 @@ This documentation is based entirely on the source PDF materials from CprE 458/5
 **Source:** `resources/_MConverter.eu_Binder1.md` (merged PDF content, 12,776 lines)
 
 **Documentation Structure:**
-- **Fundamentals**: Real-time systems definitions, examples, task types
-- **Task Scheduling**: RMS, EDF, DMS, schedulability tests, completion time test
-- **Resource Protocols**: Priority inheritance, priority ceiling protocols
-- **Overload Handling**: Imprecise computation, (m,k)-firm tasks, best effort scheduling, feedback control
-- **Advanced Scheduling**: Combined periodic/aperiodic scheduling, precedence tasks
-- **Real-Time Networking**: CAN bus, packet scheduling algorithms, traffic models and shaping
-- **Fault Tolerance**: Dependability concepts, fault types, redundancy techniques, fault-tolerant design
-- **Practical Implementations**: FreeRTOS tutorial with examples
+
+- **Fundamentals (2 files)**: Real-time systems definitions, examples, task types, architectural issues, design considerations
+- **Task Scheduling (3 files)**: RMS, EDF, DMS, schedulability tests, completion time test, blocking time calculation
+- **Resource Protocols (1 file)**: Priority inheritance, priority ceiling protocols, resource sharing
+- **Overload Handling (3 files)**: Imprecise computation, (m,k)-firm tasks, best effort scheduling (HVDF), feedback control
+- **Advanced Scheduling (2 files)**: Combined periodic/aperiodic scheduling (4 server types), precedence tasks (RMS/DMS/EDF)
+- **Real-Time Networking (3 files)**: CAN bus protocol, packet scheduling algorithms (FQ/WFQ/HRR), traffic models and shaping
+- **Fault Tolerance (2 files)**: Dependability concepts, fault types, redundancy techniques, fault-tolerant design
+- **Practical Implementations (1 file)**: FreeRTOS tutorial with task management examples
+
+**Total: 17 documentation files covering all scheduling concepts from the source PDF (12,776 lines)**
 
