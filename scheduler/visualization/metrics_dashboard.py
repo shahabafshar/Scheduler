@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from typing import List
 import pandas as pd
-from core.task import ScheduleResult
+from scheduler.core.task import ScheduleResult
 
 
 def create_metrics_dashboard(result: ScheduleResult) -> go.Figure:
@@ -33,7 +33,7 @@ def create_metrics_dashboard(result: ScheduleResult) -> go.Figure:
         {
             'time': e.time,
             'task': e.task_id or 'IDLE',
-            'event': e.event_type
+            'event_type': e.event_type
         }
         for e in result.events
     ])
@@ -61,7 +61,7 @@ def create_metrics_dashboard(result: ScheduleResult) -> go.Figure:
         )
     
     # 2. Event Distribution
-    event_types = events_df['event'].value_counts()
+    event_types = events_df['event_type'].value_counts()
     fig.add_trace(
         go.Bar(
             x=event_types.index,
@@ -160,3 +160,64 @@ def create_laxity_over_time(result: ScheduleResult) -> go.Figure:
     
     return fig
 
+
+def create_service_level_plot(result: ScheduleResult) -> go.Figure:
+    """
+    Create a plot showing FC-EDF service level changes over time.
+    
+    Args:
+        result: ScheduleResult object from simulation with service level information
+        
+    Returns:
+        Plotly figure object showing version changes
+    """
+    # Try to extract service level information from result
+    service_level_data = []
+    
+    # Look for version change events or service level information
+    for event in result.events:
+        if hasattr(event, 'details') and event.details:
+            if isinstance(event.details, dict) and 'version' in event.details:
+                service_level_data.append({
+                    'time': event.time,
+                    'task': event.task_id,
+                    'version': event.details.get('version')
+                })
+    
+    if not service_level_data:
+        fig = go.Figure()
+        fig.add_annotation(
+            text="No service level changes detected (FC-EDF not used or no version changes)",
+            showarrow=False
+        )
+        fig.update_layout(title="Service Level Changes", height=300)
+        return fig
+    
+    fig = go.Figure()
+    
+    # Group by task
+    tasks = set(item['task'] for item in service_level_data)
+    
+    for task in tasks:
+        task_data = [item for item in service_level_data if item['task'] == task]
+        times = [item['time'] for item in task_data]
+        versions = [item['version'] for item in task_data]
+        
+        fig.add_trace(go.Scatter(
+            x=times,
+            y=versions,
+            mode='markers+lines',
+            name=task,
+            marker=dict(size=8),
+            hovertemplate=f'<b>{task}</b><br>Time: %{{x}}<br>Version: %{{y}}<extra></extra>'
+        ))
+    
+    fig.update_layout(
+        title="Service Level Changes Over Time (FC-EDF)",
+        xaxis_title="Time",
+        yaxis_title="Service Level Version",
+        height=400,
+        hovermode='closest'
+    )
+    
+    return fig

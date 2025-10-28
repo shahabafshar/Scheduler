@@ -3,7 +3,7 @@
 import plotly.graph_objects as go
 from typing import List, Dict, Optional
 import pandas as pd
-from core.task import ScheduleEvent, ScheduleResult
+from scheduler.core.task import ScheduleEvent, ScheduleResult
 
 
 def create_gantt_chart(result: ScheduleResult, max_time: Optional[int] = None) -> go.Figure:
@@ -193,4 +193,72 @@ def extract_execution_blocks(result: ScheduleResult) -> List[Dict]:
                 current_start = event.time
     
     return blocks
+
+
+def create_priority_timeline(result: ScheduleResult, max_time: Optional[int] = None) -> go.Figure:
+    """
+    Create a timeline visualization showing priority changes for dynamic priority algorithms.
+    
+    Args:
+        result: ScheduleResult object from simulation
+        max_time: Maximum time to display
+        
+    Returns:
+        Plotly figure object showing priority evolution over time
+    """
+    if not result.events:
+        fig = go.Figure()
+        fig.add_annotation(text="No events to display", showarrow=False)
+        return fig
+    
+    if max_time is None:
+        max_time = max(event.time for event in result.events)
+    
+    # Track priority changes (we'll infer from task instances)
+    priority_data = {}  # task_id -> [(time, priority, task_id), ...]
+    
+    # Extract priority information from events
+    for event in result.events:
+        if event.time > max_time:
+            break
+        
+        # For priority display, we'll show task execution time with priority
+        if event.event_type == 'start' and event.task_id:
+            task_id = event.task_id
+            # Try to get priority from details or task
+            priority = 1  # Default
+            if event.details and isinstance(event.details, dict):
+                priority = event.details.get('priority', 1)
+            
+            if task_id not in priority_data:
+                priority_data[task_id] = []
+            priority_data[task_id].append((event.time, priority, task_id))
+    
+    fig = go.Figure()
+    
+    for task_id, points in priority_data.items():
+        if points:
+            times = [p[0] for p in points]
+            priorities = [p[1] for p in points]
+            
+            # Add scatter plot with color intensity based on priority
+            fig.add_trace(go.Scatter(
+                x=times,
+                y=priorities,
+                mode='markers+lines',
+                name=task_id,
+                marker=dict(size=10),
+                hovertemplate=f'<b>{task_id}</b><br>Time: %{{x}}<br>Priority: %{{y}}<extra></extra>'
+            ))
+    
+    fig.update_layout(
+        title="Priority Changes Over Time",
+        xaxis_title="Time",
+        yaxis_title="Priority (Higher = More Important)",
+        height=400,
+        hovermode='closest',
+        showlegend=True
+    )
+    
+    return fig
 

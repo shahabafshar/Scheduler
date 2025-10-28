@@ -141,7 +141,7 @@ class ResourceAwareSchedulerBase(ABC):
             self.task_instances.append(instance)
         
         # Process each time unit
-        for t in range(self.duration):
+        for t in range(int(self.duration)):
             self.current_time = float(t)
             
             # Create new instances

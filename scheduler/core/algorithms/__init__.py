@@ -4,7 +4,11 @@ from .rms import RMSScheduler
 from .edf import EDFScheduler
 from .dms import DMSScheduler
 from .llf import LLFScheduler
-from .server_schedulers import PollingServerScheduler, DeferrableServerScheduler, SporadicServerScheduler, PriorityExchangeServerScheduler, BackgroundScheduler
+from .combined import PollingServerScheduler, DeferrableServerScheduler, SporadicServerScheduler, PriorityExchangeServerScheduler, BackgroundScheduler
+from .precedence import RMSWithPrecedence, DMSWithPrecedence, EDFWithPrecedence
+from .feedback_edf import FCEDFScheduler, TaskVersion, TaskWithVersions
+from .feedback_mk_rms import FeedbackMkFirmScheduler
+from .edf_hvdf import EDFHVDFScheduler
 
 __all__ = [
     'RMSScheduler', 
@@ -15,6 +19,14 @@ __all__ = [
     'DeferrableServerScheduler',
     'SporadicServerScheduler',
     'PriorityExchangeServerScheduler',
-    'BackgroundScheduler'
+    'BackgroundScheduler',
+    'RMSWithPrecedence',
+    'DMSWithPrecedence',
+    'EDFWithPrecedence',
+    'FCEDFScheduler',
+    'TaskVersion',
+    'TaskWithVersions',
+    'FeedbackMkFirmScheduler',
+    'EDFHVDFScheduler',
 ]
 

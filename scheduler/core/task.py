@@ -3,6 +3,23 @@
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
+# Export all task types
+__all__ = [
+    'PeriodicTask', 'AperiodicTask', 'ImpreciseTask', 'MkFirmTask',
+    'ResourceConstraint', 'PrecedenceConstraint', 'TaskInstance',
+    'ScheduleEvent', 'ScheduleResult', 'CriticalSection'
+]
+
+
+@dataclass
+class CriticalSection:
+    """Critical section within a task."""
+    resource_id: str
+    start_offset: float  # Time from task start when CS begins
+    duration: float      # Duration of critical section
+    task_id: str        # Task that executes this CS
+    completed: bool = False  # Track if CS has been completed
+
 
 @dataclass
 class PeriodicTask:
@@ -12,6 +29,10 @@ class PeriodicTask:
     period: float            # P_i
     deadline: Optional[float] = None  # D_i (default = period)
     priority: int = -1       # Assigned by algorithm
+    critical_sections: List[CriticalSection] = field(default_factory=list)  # CS tracking
+    value: float = 0.0              # For value-based scheduling
+    preemptive: bool = True         # Per-task preemptive control
+    task_type: str = 'periodic'     # For UI identification
     
     def __post_init__(self):
         """Set default deadline to period if not specified."""
@@ -36,6 +57,9 @@ class AperiodicTask:
     deadline: float          # d_i
     start_time: Optional[float] = None
     completion_time: Optional[float] = None
+    value: float = 0.0              # For value-based scheduling
+    preemptive: bool = True         # Per-task preemptive control
+    task_type: str = 'aperiodic'    # For UI identification
     
     @property
     def response_time(self) -> Optional[float]:
