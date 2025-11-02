@@ -9,6 +9,7 @@ from .precedence import RMSWithPrecedence, DMSWithPrecedence, EDFWithPrecedence
 from .feedback_edf import FCEDFScheduler, TaskVersion, TaskWithVersions
 from .feedback_mk_rms import FeedbackMkFirmScheduler
 from .edf_hvdf import EDFHVDFScheduler
+from .edf_hvdf_periodic import EDFHVDFPeriodicScheduler
 
 __all__ = [
     'RMSScheduler', 
@@ -28,5 +29,6 @@ __all__ = [
     'TaskWithVersions',
     'FeedbackMkFirmScheduler',
     'EDFHVDFScheduler',
+    'EDFHVDFPeriodicScheduler',
 ]
 

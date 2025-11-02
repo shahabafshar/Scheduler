@@ -17,6 +17,7 @@ from scheduler.core.algorithms.llf import LLFScheduler
 from scheduler.core.algorithms.combined import PollingServerScheduler, DeferrableServerScheduler, SporadicServerScheduler
 from scheduler.core.algorithms.precedence import RMSWithPrecedence, DMSWithPrecedence, EDFWithPrecedence
 from scheduler.core.algorithms.edf_hvdf import EDFHVDFScheduler
+from scheduler.core.algorithms.edf_hvdf_periodic import EDFHVDFPeriodicScheduler
 from scheduler.core.analysis.schedulability import SchedulabilityAnalyzer
 from scheduler.visualization.gantt import create_gantt_chart, create_priority_timeline
 from scheduler.visualization.metrics_dashboard import create_metrics_dashboard, create_service_level_plot
@@ -60,9 +61,14 @@ def main():
         if algorithm_category == "Basic Algorithms":
             if 'algorithm' not in st.session_state:
                 st.session_state.algorithm = "RMS (Rate Monotonic)"
+            
+            options = ["RMS (Rate Monotonic)", "EDF (Earliest Deadline First)", "DMS (Deadline Monotonic)", "LLF (Least Laxity First)"]
+            current_algo_index = options.index(st.session_state.algorithm) if st.session_state.algorithm in options else 0
+            
             algorithm = st.selectbox(
                 "Scheduling Algorithm",
-                ["RMS (Rate Monotonic)", "EDF (Earliest Deadline First)", "DMS (Deadline Monotonic)", "LLF (Least Laxity First)"],
+                options,
+                index=current_algo_index,
                 key='algorithm_selectbox'
             )
         elif algorithm_category == "Server-Based (Combined)":
@@ -86,9 +92,14 @@ def main():
         else:  # Aperiodic Scheduling
             if 'algorithm' not in st.session_state:
                 st.session_state.algorithm = "EDF+HVDF (Value-Based)"
+            
+            options = ["EDF+HVDF (Value-Based)", "HVDF Only"]
+            current_algo_index = options.index(st.session_state.algorithm) if st.session_state.algorithm in options else 0
+            
             algorithm = st.selectbox(
                 "Aperiodic Algorithm",
-                ["EDF+HVDF (Value-Based)", "HVDF Only"],
+                options,
+                index=current_algo_index,
                 key='aperiodic_algorithm_selectbox'
             )
             st.info("Schedule aperiodic tasks with value-based priority")
@@ -102,13 +113,24 @@ def main():
         
         # Preset examples
         st.subheader("📚 Preset Examples")
+        
+        # Track current preset
+        if 'current_preset' not in st.session_state:
+            st.session_state.current_preset = "None"
+        
+        preset_options = ["None"] + list(PRESETS.keys())
+        preset_index = preset_options.index(st.session_state.current_preset) if st.session_state.current_preset in preset_options else 0
+        
         preset_selection = st.selectbox(
             "Choose a preset configuration:",
-            ["None"] + list(PRESETS.keys())
+            preset_options,
+            index=preset_index
         )
         
-        if preset_selection != "None":
-            st.session_state.load_preset = preset_selection
+        if preset_selection != st.session_state.current_preset:
+            st.session_state.current_preset = preset_selection
+            if preset_selection != "None":
+                st.session_state.load_preset = preset_selection
     
     # Initialize session state (resource config moved to main content)
     if 'resources' not in st.session_state:
@@ -710,9 +732,16 @@ def main():
                 # Select scheduler based on algorithm category
                 # IMPORTANT: Check Aperiodic Scheduling FIRST before other EDF checks
                 if algorithm_category == "Aperiodic Scheduling":
-                    if "EDF+HVDF" in algorithm and aperiodic_tasks:
-                        scheduler = EDFHVDFScheduler(aperiodic_tasks, duration)
-                        st.info("🎯 Using EDF+HVDF for aperiodic tasks with value tracking")
+                    if "EDF+HVDF" in algorithm:
+                        if aperiodic_tasks:
+                            scheduler = EDFHVDFScheduler(aperiodic_tasks, duration)
+                            st.info("🎯 Using EDF+HVDF for aperiodic tasks with value tracking")
+                        elif periodic_tasks:
+                            scheduler = EDFHVDFPeriodicScheduler(periodic_tasks, duration)
+                            st.info("🎯 Using EDF+HVDF for periodic tasks with value tracking")
+                        else:
+                            st.warning("⚠️ EDF+HVDF requires tasks with value field.")
+                            scheduler = RMSScheduler([], duration)
                     else:
                         st.warning("⚠️ Aperiodic Scheduling requires aperiodic tasks. Please add tasks with type='Aperiodic'.")
                         scheduler = RMSScheduler(periodic_tasks if periodic_tasks else [], duration)
@@ -862,17 +891,31 @@ def main():
                         
                         # Per-task breakdown
                         value_data = []
-                        for inst in scheduler.completed_tasks:
-                            met_deadline = inst.completion_time <= inst.deadline
-                            task_value = scheduler.task_values.get(inst.task_id, 0.0)
-                            value_contributed = task_value if met_deadline else 0
-                            value_data.append({
-                                'Task': inst.task_id,
-                                'Completed': f"{inst.completion_time:.2f}",
-                                'Deadline': f"{inst.deadline:.2f}",
-                                'Status': '✓ Met' if met_deadline else '✗ MISSED',
-                                'Value': f"{value_contributed:.2f}"
-                            })
+                        
+                        # Check if it's periodic scheduler with get_value_breakdown method
+                        if hasattr(scheduler, 'get_value_breakdown'):
+                            breakdown = scheduler.get_value_breakdown()
+                            for item in breakdown:
+                                value_data.append({
+                                    'Task': f"{item['task_id']}[{item['instance']}]",
+                                    'Completed': f"{item['completion_time']:.2f}",
+                                    'Deadline': f"{item['deadline']:.2f}",
+                                    'Status': '✓ Met' if item['met_deadline'] else '✗ MISSED',
+                                    'Value': f"{item['value']:.2f}"
+                                })
+                        # Legacy: for aperiodic scheduler
+                        elif hasattr(scheduler, 'completed_tasks'):
+                            for inst in scheduler.completed_tasks:
+                                met_deadline = inst.completion_time <= inst.deadline
+                                task_value = scheduler.task_values.get(inst.task_id, 0.0)
+                                value_contributed = task_value if met_deadline else 0
+                                value_data.append({
+                                    'Task': inst.task_id,
+                                    'Completed': f"{inst.completion_time:.2f}",
+                                    'Deadline': f"{inst.deadline:.2f}",
+                                    'Status': '✓ Met' if met_deadline else '✗ MISSED',
+                                    'Value': f"{value_contributed:.2f}"
+                                })
                         
                         if value_data:
                             value_df = pd.DataFrame(value_data)
