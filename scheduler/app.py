@@ -380,7 +380,7 @@ def main():
         available_cols = [col for col in key_cols if col in display_df.columns]
         if available_cols:
             display_df_ordered = display_df[available_cols]
-            st.dataframe(display_df_ordered, use_container_width=True, hide_index=True)
+            st.dataframe(display_df_ordered, width='stretch', hide_index=True)
     
     # Quick simulation button at the top
     if st.session_state.tasks:
@@ -407,12 +407,12 @@ def main():
             st.warning("Grid returned empty - showing read-only view")
             # Fallback: show read-only dataframe
             display_df = pd.DataFrame(st.session_state.tasks)
-            st.dataframe(display_df, use_container_width=True, hide_index=True)
+            st.dataframe(display_df, width='stretch', hide_index=True)
     except Exception as e:
         st.warning(f"Data editor issue - showing read-only view: {e}")
         # Show data anyway in read-only mode
         display_df = pd.DataFrame(st.session_state.tasks)
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        st.dataframe(display_df, width='stretch', hide_index=True)
     
     # POST-PROCESSING: Auto-fill CS durations when resources are selected
     # This runs AFTER the data_editor has updated session state
@@ -523,7 +523,7 @@ def main():
             st.info(f"✓ {len(precedence_constraints)} precedence constraint(s) defined")
             # Display in a nice format
             prec_df = pd.DataFrame(precedence_constraints)
-            st.dataframe(prec_df, use_container_width=True, hide_index=True)
+            st.dataframe(prec_df, width='stretch', hide_index=True)
     
     st.markdown("---")
     
@@ -566,7 +566,7 @@ def main():
                             'Version 1 (ET, Accuracy)': ['Use task table above'] * num_tasks,
                             'Version 2 (ET, Accuracy)': ['Not configured'] * num_tasks,
                         }),
-                        use_container_width=True,
+                        width='stretch',
                         hide_index=True
                     )
                 st.caption("💡 Service levels are automatically configured based on task parameters. This is a preview.")
@@ -688,7 +688,7 @@ def main():
                 if not util_test['schedulable'] and 'exact_analysis' in results:
                     st.subheader("Exact Analysis (Completion Time Test)")
                     exact_df = pd.DataFrame(results['exact_analysis']).T
-                    st.dataframe(exact_df, use_container_width=True, hide_index=True)
+                    st.dataframe(exact_df, width='stretch', hide_index=True)
             elif algorithm.startswith("EDF"):
                 schedulable, utilization, explanation = SchedulabilityAnalyzer.edf_utilization_test(periodic_tasks)
                 st.metric("Utilization", f"{utilization:.3f}")
@@ -868,7 +868,7 @@ def main():
                 # Gantt Chart
                 st.subheader("📊 Gantt Chart Visualization")
                 fig = create_gantt_chart(result, max_time=duration)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
                 
                 # Timeline
                 st.subheader("Detailed Timeline")
@@ -880,7 +880,7 @@ def main():
                     }
                     for event in result.events[:100]  # Show first 100 events
                 ])
-                st.dataframe(timeline_df, use_container_width=True, hide_index=True)
+                st.dataframe(timeline_df, width='stretch', hide_index=True)
                 
                 # Value Analysis for EDF+HVDF
                 if hasattr(scheduler, 'calculate_total_value') or "HVDF" in algorithm:
@@ -919,14 +919,14 @@ def main():
                         
                         if value_data:
                             value_df = pd.DataFrame(value_data)
-                            st.dataframe(value_df, use_container_width=True, hide_index=True)
+                            st.dataframe(value_df, width='stretch', hide_index=True)
                     except Exception as e:
                         st.warning(f"Could not calculate value: {e}")
                 
                 # Metrics Dashboard
                 st.subheader("📊 Metrics Dashboard")
                 metrics_fig = create_metrics_dashboard(result)
-                st.plotly_chart(metrics_fig, use_container_width=True)
+                st.plotly_chart(metrics_fig, width='stretch')
                 
                 # Additional Visualizations (if applicable)
                 # Show precedence graph if precedence constraints are enabled
@@ -934,7 +934,7 @@ def main():
                     st.subheader("🔗 Precedence Graph")
                     try:
                         prec_fig = create_precedence_graph(precedence_constraints, periodic_tasks)
-                        st.plotly_chart(prec_fig, use_container_width=True)
+                        st.plotly_chart(prec_fig, width='stretch')
                     except Exception as e:
                         st.warning(f"Could not display precedence graph: {e}")
                 
@@ -943,7 +943,7 @@ def main():
                     st.subheader("📈 Priority Changes Timeline")
                     try:
                         priority_fig = create_priority_timeline(result, max_time=duration)
-                        st.plotly_chart(priority_fig, use_container_width=True)
+                        st.plotly_chart(priority_fig, width='stretch')
                     except Exception as e:
                         st.warning(f"Could not display priority timeline: {e}")
                 
@@ -952,7 +952,7 @@ def main():
                     st.subheader("🔄 Service Level Changes")
                     try:
                         service_fig = create_service_level_plot(result)
-                        st.plotly_chart(service_fig, use_container_width=True)
+                        st.plotly_chart(service_fig, width='stretch')
                     except Exception as e:
                         st.warning(f"Could not display service level changes: {e}")
                 
@@ -967,7 +967,7 @@ def main():
                                 m, k = map(int, mk_value.split(','))
                                 mk_fig = create_mk_history_chart(result, task['id'], m, k)
                                 with st.expander(f"(m,k)-History for {task['id']}"):
-                                    st.plotly_chart(mk_fig, use_container_width=True)
+                                    st.plotly_chart(mk_fig, width='stretch')
                             except:
                                 pass
                 
@@ -991,7 +991,7 @@ def main():
                 # Display step viewer
                 viewer_data = create_timeline_step_viewer(result, current_step=step)
                 if viewer_data['figure']:
-                    st.plotly_chart(viewer_data['figure'], use_container_width=True)
+                    st.plotly_chart(viewer_data['figure'], width='stretch')
                     st.markdown(f"**Explanation:** {viewer_data['explanation']}")
                 
                 # Export options
