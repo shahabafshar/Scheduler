@@ -344,7 +344,8 @@ class RMSWithPrecedence(SchedulerBase):
 
         # Sort and return result
         self.timeline.sort(key=lambda e: e.time)
-        context_switches = sum(1 for e in self.timeline if e.event_type in ['start', 'preempt'])
+        # Count only 'start' to avoid double-counting preempt+start as 2 switches
+        context_switches = sum(1 for e in self.timeline if e.event_type == 'start')
         cpu_util = busy_time / self.duration if self.duration > 0 else 0.0
 
         return ScheduleResult(
@@ -750,7 +751,8 @@ class DMSWithPrecedence(SchedulerBase):
 
         # Return result
         self.timeline.sort(key=lambda e: e.time)
-        context_switches = sum(1 for e in self.timeline if e.event_type in ['start', 'preempt'])
+        # Count only 'start' to avoid double-counting preempt+start as 2 switches
+        context_switches = sum(1 for e in self.timeline if e.event_type == 'start')
         cpu_util = busy_time / self.duration if self.duration > 0 else 0.0
 
         return ScheduleResult(
@@ -1049,7 +1051,8 @@ class EDFWithPrecedence(SchedulerBase):
 
         # Return result
         self.timeline.sort(key=lambda e: e.time)
-        context_switches = sum(1 for e in self.timeline if e.event_type in ['start', 'preempt'])
+        # Count only 'start' to avoid double-counting preempt+start as 2 switches
+        context_switches = sum(1 for e in self.timeline if e.event_type == 'start')
         cpu_util = busy_time / self.duration if self.duration > 0 else 0.0
 
         return ScheduleResult(

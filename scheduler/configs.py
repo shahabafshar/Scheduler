@@ -118,6 +118,24 @@ SERVER_HEAVY_LOAD = {
     "server_period": 8.0
 }
 
+# Server Capacity Demo: Large aperiodic tasks that clearly show Cs/Ps effects
+# With Cs=2, Ps=5: A1 completes ~t=17 (needs 4 replenishments)
+# With Cs=4, Ps=5: A1 completes ~t=9 (needs 2 replenishments)
+# With Cs=8, Ps=5: A1 completes ~t=8 (needs 1 replenishment)
+SERVER_CAPACITY_DEMO = {
+    "periodic": [
+        PeriodicTask(id="P1", computation_time=1.0, period=10.0, deadline=10.0),
+        PeriodicTask(id="P2", computation_time=1.0, period=15.0, deadline=15.0),
+    ],
+    "aperiodic": [
+        AperiodicTask(id="A1", arrival_time=0, computation_time=8, deadline=50, value=10),
+        AperiodicTask(id="A2", arrival_time=12, computation_time=6, deadline=60, value=8),
+        AperiodicTask(id="A3", arrival_time=25, computation_time=4, deadline=70, value=6),
+    ],
+    "server_capacity": 2.0,
+    "server_period": 5.0
+}
+
 # ============== Precedence-Constrained Examples ==============
 # Tasks with dependencies: T1 -> T2 -> T3 (chain)
 PRECEDENCE_CHAIN = [
@@ -292,6 +310,14 @@ PRESET_CATALOG = {
         "algorithm": "Background Scheduler",
         "tasks": SERVER_EXAMPLE_1,
         "description": "Aperiodic tasks execute only during CPU idle time (worst-case baseline)"
+    },
+    "server_capacity_demo": {
+        "name": "⭐ Server Capacity Demo",
+        "category": "Server-Based (Combined)",
+        "algorithm": "Polling Server",
+        "tasks": SERVER_CAPACITY_DEMO,
+        "description": "Large aperiodic tasks (C=8,6,4) - TRY: Cs=2 vs Cs=4 vs Cs=8 to see completion time differences",
+        "config": {"server_capacity": 2.0, "server_period": 5.0}
     },
 
     # ===== PRECEDENCE-CONSTRAINED =====

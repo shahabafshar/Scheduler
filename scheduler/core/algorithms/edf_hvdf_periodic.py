@@ -236,9 +236,9 @@ class EDFHVDFPeriodicScheduler(SchedulerBase):
         
         # Sort timeline by time
         self.timeline.sort(key=lambda e: e.time)
-        
-        # Calculate metrics
-        total_context_switches = len([evt for evt in self.timeline if evt.event_type in ['start', 'preempt']])
+
+        # Calculate metrics (count only 'start' to avoid double-counting preempt+start)
+        total_context_switches = len([evt for evt in self.timeline if evt.event_type == 'start'])
 
         # CPU utilization (based on actual busy time tracked during simulation)
         cpu_utilization = (busy_time / self.duration) if self.duration > 0 else 0.0

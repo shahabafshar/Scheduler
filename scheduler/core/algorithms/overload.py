@@ -30,8 +30,8 @@ class ImpreciseComputationScheduler(SchedulerBase):
         super().__init__(tasks, duration)
 
     def assign_priorities(self) -> None:
-        """Assign RMS priorities."""
-        sorted_tasks = sorted(self.tasks, key=lambda t: t.period)
+        """Assign RMS priorities with deterministic tie-breaking."""
+        sorted_tasks = sorted(self.tasks, key=lambda t: (t.period, t.id))
         for i, task in enumerate(sorted_tasks):
             task.priority = len(sorted_tasks) - i
 
@@ -211,8 +211,8 @@ class ImpreciseComputationScheduler(SchedulerBase):
         # Sort timeline
         self.timeline.sort(key=lambda e: e.time)
 
-        # Calculate metrics
-        context_switches = sum(1 for e in self.timeline if e.event_type in ['start', 'preempt'])
+        # Calculate metrics (count only 'start' to avoid double-counting preempt+start)
+        context_switches = sum(1 for e in self.timeline if e.event_type == 'start')
         cpu_util = busy_time / self.duration if self.duration > 0 else 0.0
 
         return ScheduleResult(
@@ -255,16 +255,17 @@ class HVDFScheduler(SchedulerBase):
             if task.computation_time > 0:
                 value_density = value / task.computation_time
                 # Use value density as priority (higher = better)
-                task.priority = int(value_density * 1000)  # Scale for integer priority
+                # Scale by 1_000_000 for better precision with close values
+                task.priority = int(value_density * 1_000_000)
             else:
                 task.priority = 0
-    
+
     def get_next_task(self, ready_queue: List[TaskInstance]) -> Optional[TaskInstance]:
-        """Select task with highest value density."""
+        """Select task with highest value density (tie-break by task_id for determinism)."""
         if not ready_queue:
             return None
-        # Ready queue is already sorted by priority (value density)
-        return ready_queue[0]
+        # Sort by priority (desc) with task_id tie-breaker for determinism
+        return max(ready_queue, key=lambda x: (self.get_task_priority(x.task_id), -ord(x.task_id[0]) if x.task_id else 0))
 
 
 class MkFirmScheduler(SchedulerBase):
@@ -291,8 +292,8 @@ class MkFirmScheduler(SchedulerBase):
         super().__init__(tasks, duration)
 
     def assign_priorities(self) -> None:
-        """Assign RMS priorities."""
-        sorted_tasks = sorted(self.tasks, key=lambda t: t.period)
+        """Assign RMS priorities with deterministic tie-breaking."""
+        sorted_tasks = sorted(self.tasks, key=lambda t: (t.period, t.id))
         for i, task in enumerate(sorted_tasks):
             task.priority = len(sorted_tasks) - i
 
@@ -511,8 +512,8 @@ class MkFirmScheduler(SchedulerBase):
         # Sort timeline
         self.timeline.sort(key=lambda e: e.time)
 
-        # Calculate metrics
-        context_switches = sum(1 for e in self.timeline if e.event_type in ['start', 'preempt'])
+        # Calculate metrics (count only 'start' to avoid double-counting preempt+start)
+        context_switches = sum(1 for e in self.timeline if e.event_type == 'start')
         cpu_util = busy_time / self.duration if self.duration > 0 else 0.0
 
         return ScheduleResult(

@@ -111,7 +111,7 @@ class ServerScheduler(SchedulerBase):
     def _check_deadline_misses(self, t: int) -> None:
         """Check for deadline misses on periodic tasks."""
         for inst in self.task_instances:
-            if inst.remaining_time > 0 and t >= inst.deadline:
+            if inst.remaining_time > 0 and t > inst.deadline:
                 if not any(dm.details.get('instance') == inst.instance_number
                           for dm in self.deadline_misses if dm.task_id == inst.task_id):
                     self.deadline_misses.append(ScheduleEvent(
@@ -122,7 +122,7 @@ class ServerScheduler(SchedulerBase):
         # Check aperiodic deadline misses
         for apt in self.aperiodic_tasks:
             if apt.id in self.aperiodic_remaining:
-                if self.aperiodic_remaining[apt.id] > 0 and t >= apt.deadline:
+                if self.aperiodic_remaining[apt.id] > 0 and t > apt.deadline:
                     if not any(dm.task_id == f"Aperiodic_{apt.id}" for dm in self.deadline_misses):
                         self.deadline_misses.append(ScheduleEvent(
                             time=float(t), task_id=f"Aperiodic_{apt.id}", event_type='deadline_miss',
@@ -269,8 +269,8 @@ class ServerScheduler(SchedulerBase):
         # Sort timeline
         self.timeline.sort(key=lambda e: e.time)
 
-        # Count context switches
-        context_switches = sum(1 for e in self.timeline if e.event_type in ['start', 'preempt'])
+        # Count context switches (only 'start' to avoid double-counting preempt+start)
+        context_switches = sum(1 for e in self.timeline if e.event_type == 'start')
 
         # Calculate utilization
         cpu_util = busy_time / self.duration if self.duration > 0 else 0.0
@@ -700,9 +700,9 @@ class BackgroundScheduler(SchedulerBase):
                           if inst.remaining_time > 0 and t >= inst.arrival_time]
             ready_queue.sort(key=lambda x: (-self.get_task_priority(x.task_id), x.task_id))
 
-            # Check deadline misses
+            # Check deadline misses (t > deadline, not >=, per RT theory)
             for inst in self.task_instances:
-                if inst.remaining_time > 0 and t >= inst.deadline:
+                if inst.remaining_time > 0 and t > inst.deadline:
                     if not any(dm.details.get('instance') == inst.instance_number
                               for dm in self.deadline_misses if dm.task_id == inst.task_id):
                         self.deadline_misses.append(ScheduleEvent(
@@ -760,7 +760,8 @@ class BackgroundScheduler(SchedulerBase):
                 self.running_task = None
 
         self.timeline.sort(key=lambda e: e.time)
-        context_switches = sum(1 for e in self.timeline if e.event_type in ['start', 'preempt'])
+        # Count only 'start' to avoid double-counting preempt+start as 2 switches
+        context_switches = sum(1 for e in self.timeline if e.event_type == 'start')
         cpu_util = busy_time / self.duration if self.duration > 0 else 0.0
 
         # Calculate response times

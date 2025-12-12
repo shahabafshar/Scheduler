@@ -96,12 +96,12 @@ class FCEDFScheduler(SchedulerBase):
         pass
     
     def get_next_task(self, ready_queue: List[TaskInstance]) -> Optional[TaskInstance]:
-        """Select task with earliest deadline (EDF)."""
+        """Select task with earliest deadline (EDF) with deterministic tie-breaking."""
         if not ready_queue:
             return None
-        
-        # Get real-time deadlines from task instances
-        sorted_queue = sorted(ready_queue, key=lambda inst: self._get_abs_deadline(inst))
+
+        # Get real-time deadlines from task instances (tie-break by task_id for determinism)
+        sorted_queue = sorted(ready_queue, key=lambda inst: (self._get_abs_deadline(inst), inst.task_id))
         return sorted_queue[0]
     
     def _get_abs_deadline(self, instance: TaskInstance) -> float:
@@ -119,7 +119,10 @@ class FCEDFScheduler(SchedulerBase):
                 deadline=float(task.deadline),
                 remaining_time=task.computation_time
             ))
-        
+
+        # Track CPU busy time for utilization
+        busy_time = 0
+
         # Run simulation
         for t in range(int(self.duration)):
             self.current_time = float(t)
@@ -188,30 +191,35 @@ class FCEDFScheduler(SchedulerBase):
             
             if self.running_task:
                 self.running_task.remaining_time -= 1
-                
+                busy_time += 1
+
                 if self.running_task.remaining_time <= 0:
                     self.timeline.append(ScheduleEvent(
                         time=float(t+1), task_id=self.running_task.task_id, event_type='complete',
                         details={'instance': self.running_task.instance_number}
                     ))
                     self.running_task = None
-            
+
             if not self.running_task and not next_task:
                 self.timeline.append(ScheduleEvent(
                     time=float(t), task_id=None, event_type='idle', details={}
                 ))
-            
+
             self.miss_count_history.append((t, False))
-        
+
         self.timeline.sort(key=lambda e: e.time)
-        
+
+        # Calculate metrics (count only 'start' to avoid double-counting preempt+start)
+        context_switches = sum(1 for e in self.timeline if e.event_type == 'start')
+        cpu_util = busy_time / self.duration if self.duration > 0 else 0.0
+
         return ScheduleResult(
             algorithm="FC-EDF",
             tasks=self.tasks,
             events=self.timeline,
             deadline_misses=self.deadline_misses,
-            total_context_switches=sum(1 for e in self.timeline if e.event_type in ['start', 'preempt']),
-            cpu_utilization=sum(1 for e in self.timeline if e.task_id and e.event_type == 'start') / self.duration,
+            total_context_switches=context_switches,
+            cpu_utilization=cpu_util,
             response_times={},
             details={'service_level_history': self.service_level_history}
         )

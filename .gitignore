@@ -194,6 +194,7 @@ logs/
 tmp/
 temp/
 *.tmp
+CLAUDE.md
 
 # Data files (if sensitive or large)
 # Uncomment if you have large data files

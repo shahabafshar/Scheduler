@@ -254,8 +254,8 @@ class EDFHVDFScheduler(SchedulerBase):
         # Calculate deadline misses
         deadline_misses = [evt for evt in self.timeline if evt.event_type == 'deadline_miss']
         
-        # Calculate context switches (start and preempt events)
-        total_context_switches = len([evt for evt in self.timeline if evt.event_type in ['start', 'preempt']])
+        # Calculate context switches (count only 'start' to avoid double-counting preempt+start)
+        total_context_switches = len([evt for evt in self.timeline if evt.event_type == 'start'])
         
         # Calculate CPU utilization (sum of computation times / duration)
         busy_time = sum(task.computation_time for task in self.aperiodic_tasks)

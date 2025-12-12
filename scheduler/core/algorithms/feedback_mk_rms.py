@@ -66,8 +66,8 @@ class FeedbackMkFirmScheduler(SchedulerBase):
         self.mqr_history = {task.id: [] for task in mk_tasks}  # {(time, mqr), ...}
         
     def assign_priorities(self) -> None:
-        """Assign RMS priorities based on periods."""
-        sorted_tasks = sorted(self.tasks, key=lambda t: t.period)
+        """Assign RMS priorities based on periods with deterministic tie-breaking."""
+        sorted_tasks = sorted(self.tasks, key=lambda t: (t.period, t.id))
         for i, task in enumerate(sorted_tasks):
             task.priority = len(sorted_tasks) - i
     
@@ -94,7 +94,10 @@ class FeedbackMkFirmScheduler(SchedulerBase):
                 deadline=float(task.deadline),
                 remaining_time=task.computation_time
             ))
-        
+
+        # Track CPU busy time for utilization
+        busy_time = 0
+
         # Run simulation
         for t in range(int(self.duration)):
             self.current_time = float(t)
@@ -160,7 +163,8 @@ class FeedbackMkFirmScheduler(SchedulerBase):
             
             if self.running_task:
                 self.running_task.remaining_time -= 1
-                
+                busy_time += 1
+
                 if self.running_task.remaining_time <= 0:
                     self.timeline.append(ScheduleEvent(
                         time=float(t+1), task_id=self.running_task.task_id, event_type='complete',
@@ -169,14 +173,14 @@ class FeedbackMkFirmScheduler(SchedulerBase):
                     # Record successful completion in history
                     self.task_history[self.running_task.task_id].append((self.running_task.instance_number, True))
                     self.running_task = None
-            
+
             if not self.running_task and not next_task:
                 self.timeline.append(ScheduleEvent(
                     time=float(t), task_id=None, event_type='idle', details={}
                 ))
-        
+
         self.timeline.sort(key=lambda e: e.time)
-        
+
         # Store diagnostic data in scheduler for later access
         self.diagnostic_details = {
             'current_m_values': self.current_m_values,
@@ -185,13 +189,17 @@ class FeedbackMkFirmScheduler(SchedulerBase):
             'task_history': self.task_history
         }
 
+        # Calculate metrics (count only 'start' to avoid double-counting preempt+start)
+        context_switches = sum(1 for e in self.timeline if e.event_type == 'start')
+        cpu_util = busy_time / self.duration if self.duration > 0 else 0.0
+
         return ScheduleResult(
             algorithm="Feedback (m,k)-RMS",
             tasks=self.tasks,
             events=self.timeline,
             deadline_misses=self.deadline_misses,
-            total_context_switches=sum(1 for e in self.timeline if e.event_type in ['start', 'preempt']),
-            cpu_utilization=sum(1 for e in self.timeline if e.task_id and e.event_type == 'start') / self.duration,
+            total_context_switches=context_switches,
+            cpu_utilization=cpu_util,
             response_times={}
         )
     

@@ -232,9 +232,10 @@ class SchedulerBase(ABC):
         
         # Sort timeline by time
         self.timeline.sort(key=lambda e: e.time)
-        
-        # Calculate context switches
-        context_switches = sum(1 for e in self.timeline if e.event_type in ['start', 'preempt'])
+
+        # Calculate context switches (count 'start' events only to avoid double-counting preemptions)
+        # When task A is preempted by B, we record both 'preempt' and 'start' - counting both would be 2x
+        context_switches = sum(1 for e in self.timeline if e.event_type == 'start')
         
         # CPU utilization
         cpu_util = busy_time / self.duration if self.duration > 0 else 0.0

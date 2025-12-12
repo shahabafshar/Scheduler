@@ -346,12 +346,19 @@ def main():
         if algorithm_category == "Server-Based (Combined)":
             srv_c1, srv_c2 = st.columns(2)
             with srv_c1:
-                st.session_state['server_capacity'] = st.number_input(
-                    "Server Capacity (Cs)", min_value=0.1, max_value=20.0, value=2.0, step=0.5, key='srv_cap'
+                # Use consistent key - widget value stored directly in session_state['server_capacity']
+                if 'server_capacity' not in st.session_state:
+                    st.session_state['server_capacity'] = 2.0
+                st.number_input(
+                    "Server Capacity (Cs)", min_value=0.1, max_value=20.0,
+                    step=0.5, key='server_capacity'
                 )
             with srv_c2:
-                st.session_state['server_period'] = st.number_input(
-                    "Server Period (Ps)", min_value=1.0, max_value=50.0, value=5.0, step=1.0, key='srv_per'
+                if 'server_period' not in st.session_state:
+                    st.session_state['server_period'] = 5.0
+                st.number_input(
+                    "Server Period (Ps)", min_value=1.0, max_value=50.0,
+                    step=1.0, key='server_period'
                 )
             st.caption("Server-Based needs both periodic + aperiodic tasks")
 
@@ -907,7 +914,7 @@ def main():
                                 help="Use slider or arrow keys to step through events")
                 viewer_data = create_timeline_step_viewer(result, current_step=step)
                 if viewer_data['figure']:
-                    st.plotly_chart(viewer_data['figure'], use_container_width=True)
+                    st.plotly_chart(viewer_data['figure'], width='stretch')
                     st.caption(viewer_data['explanation'])
 
             with tab_analysis:
@@ -1042,7 +1049,7 @@ def main():
                      'Details': str(e.details) if e.details else ''}
                     for e in result.events[:200]
                 ])
-                st.dataframe(timeline_df, height=350, use_container_width=True, hide_index=True)
+                st.dataframe(timeline_df, height=350, width='stretch', hide_index=True)
 
                 # Download buttons
                 st.subheader("Download Data")

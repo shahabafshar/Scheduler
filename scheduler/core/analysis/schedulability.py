@@ -180,7 +180,11 @@ class SchedulabilityAnalyzer:
         is_harmonic = True
         for i in range(len(periods)):
             for j in range(i+1, len(periods)):
-                if periods[j] % periods[i] != 0:
+                # Use tolerance for floating-point comparison
+                remainder = periods[j] % periods[i]
+                # Check if remainder is effectively 0 (within tolerance)
+                # remainder close to 0 OR close to periods[i] (wraparound) means harmonic
+                if remainder > 0.001 and abs(remainder - periods[i]) > 0.001:
                     is_harmonic = False
                     break
             if not is_harmonic:
