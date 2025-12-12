@@ -88,7 +88,7 @@ class ResourceAwareSchedulerBase(ABC):
         
         # Try using protocol if available
         if self.protocol:
-            blocking_task = self.protocol.request_resource hypo, resource_id)
+            blocking_task = self.protocol.request_resource(task_id, resource_id)
             if blocking_task:
                 self.blocked_tasks.add(task_id)
                 return False  # Blocked
@@ -124,11 +124,58 @@ class ResourceAwareSchedulerBase(ABC):
                     next_task = resource.queue.pop(0)
                     self.blocked_tasks.discard(next_task)
     
+    def _get_task_critical_sections(self, task_id: str) -> list:
+        """Get critical sections for a task."""
+        task = next((t for t in self.tasks if t.id == task_id), None)
+        return task.critical_sections if task else []
+
+    def _get_execution_progress(self, task_instance: TaskInstance) -> float:
+        """Get how much of the task has been executed so far."""
+        task = next((t for t in self.tasks if t.id == task_instance.task_id), None)
+        if task:
+            return task.computation_time - task_instance.remaining_time
+        return 0.0
+
+    def _check_cs_entry(self, task_id: str, progress: float) -> Optional[tuple]:
+        """Check if task should enter a critical section at given progress."""
+        critical_sections = self._get_task_critical_sections(task_id)
+        for cs in critical_sections:
+            if not cs.completed and abs(cs.start_offset - progress) < 0.001:
+                return (cs.resource_id, cs)
+        return None
+
+    def _check_cs_exit(self, task_id: str, progress: float) -> Optional[tuple]:
+        """Check if task should exit a critical section at given progress."""
+        critical_sections = self._get_task_critical_sections(task_id)
+        for cs in critical_sections:
+            if not cs.completed:
+                cs_end = cs.start_offset + cs.duration
+                if progress >= cs_end - 0.001:
+                    return (cs.resource_id, cs)
+        return None
+
+    def _is_in_critical_section(self, task_id: str, progress: float) -> Optional[str]:
+        """Check if task is currently in a critical section."""
+        critical_sections = self._get_task_critical_sections(task_id)
+        for cs in critical_sections:
+            if not cs.completed:
+                if cs.start_offset <= progress < cs.start_offset + cs.duration:
+                    return cs.resource_id
+        return None
+
     def simulate(self) -> ScheduleResult:
         """Run the scheduling simulation with resource handling."""
         self.assign_priorities()
+
+        # Update protocol priorities after scheduler assigns them (CRITICAL for PCP)
+        if self.protocol and hasattr(self.protocol, 'update_priorities'):
+            self.protocol.update_priorities()
+
         busy_time = 0
-        
+
+        # Track active critical sections per task instance
+        active_cs: Dict[tuple, str] = {}  # (task_id, instance) -> resource_id
+
         # Initialize first task instances
         for task in self.tasks:
             instance = TaskInstance(
@@ -139,67 +186,62 @@ class ResourceAwareSchedulerBase(ABC):
                 remaining_time=task.computation_time
             )
             self.task_instances.append(instance)
-        
+
         # Process each time unit
         for t in range(int(self.duration)):
             self.current_time = float(t)
-            
+
             # Create new instances
             for task in self.tasks:
-                periods_passed = t // int(task.period)
+                periods_passed = int(t // task.period)
                 if periods_passed > 0:
-                    existing = [inst for inst in self.task_instances 
-                               if inst.task_id == task.id and inst.arrival_time == float(periods_passed * int(task.period))]
+                    arrival_time = periods_passed * task.period
+                    existing = [inst for inst in self.task_instances
+                               if inst.task_id == task.id and abs(inst.arrival_time - arrival_time) < 0.001]
                     if not existing:
                         instance = TaskInstance(
                             task_id=task.id,
                             instance_number=periods_passed,
-                            arrival_time=float(periods_passed * int(task.period)),
-                            deadline=float(periods_passed * int(task.period) + task.deadline),
+                            arrival_time=arrival_time,
+                            deadline=arrival_time + task.deadline,
                             remaining_time=task.computation_time
                         )
                         self.task_instances.append(instance)
-            
+
             # Update ready queue (exclude blocked tasks)
-            ready_queue = [inst for inst in self.task_instances 
-                          if inst.remaining_time > 0 and t >= inst.arrival_time and t < inst.de也不敢 and inst.task_id not in self.blocked_tasks]
-            
+            ready_queue = [inst for inst in self.task_instances
+                          if inst.remaining_time > 0 and t >= inst.arrival_time and inst.task_id not in self.blocked_tasks]
+
             # Sort by priority (use task_id as tie-breaker for deterministic results)
             ready_queue.sort(key=lambda x: (-self.get_task_priority(x.task_id), x.task_id))
-            
+
             # Check deadline misses
             for inst in self.task_instances:
-                if inst.remaining_time > 0 and t >= inst.deadline:
-                    if not any(dm.details.get('instance') == inst.instance_number 
+                if inst.remaining_time > 0 and t > inst.deadline:
+                    if not any(dm.details.get('instance') == inst.instance_number
                               for dm in self.deadline_misses if dm.task_id == inst.task_id):
                         self.deadline_misses.append(ScheduleEvent(
                             time=float(t), task_id=inst.task_id, event_type='deadline_miss',
                             details={'instance': inst.instance_number}
                         ))
-            
+
             # Select next task
             next_task = self.get_next_task(ready_queue)
-            
+
             # Handle preemption
             if self.running_task and next_task != self.running_task:
                 if self.running_task.remaining_time > 0:
-                    self.timeline.append(ScheduleEvent(
-                        time=float(t), task_id=self.running_task.task_id, event_type='preempt',
-                        details={'instance': self.running_task.instance_number}
-                    ))
-            
-            # Execute current task (simplified - real implementation needs CS handling)
-            if self.running_task:
-                self.running_task.remaining_time -= 1
-                busy_time += 1
-                
-                if self.running_task.remaining_time <= 0:
-                    self.timeline.append(ScheduleEvent(
-                        time=float(t+1), task_id=self.running_task.task_id, event_type='complete',
-                        details={'instance': self.running_task.instance_number}
-                    ))
-                    self.running_task = None
-            
+                    # Check if current task is in critical section (non-preemptive within CS)
+                    inst_key = (self.running_task.task_id, self.running_task.instance_number)
+                    if inst_key in active_cs:
+                        # In critical section - cannot be preempted
+                        next_task = self.running_task
+                    else:
+                        self.timeline.append(ScheduleEvent(
+                            time=float(t), task_id=self.running_task.task_id, event_type='preempt',
+                            details={'instance': self.running_task.instance_number}
+                        ))
+
             # Start new task
             if next_task and next_task != self.running_task:
                 self.timeline.append(ScheduleEvent(
@@ -207,20 +249,76 @@ class ResourceAwareSchedulerBase(ABC):
                     details={'instance': next_task.instance_number}
                 ))
                 self.running_task = next_task
-            elif not next_task and not self.running_task:
+
+            # Execute current task with critical section handling
+            if self.running_task:
+                progress = self._get_execution_progress(self.running_task)
+                inst_key = (self.running_task.task_id, self.running_task.instance_number)
+
+                # Check for critical section entry
+                cs_entry = self._check_cs_entry(self.running_task.task_id, progress)
+                if cs_entry:
+                    resource_id, cs = cs_entry
+                    if self.request_resource(self.running_task.task_id, resource_id):
+                        # Resource acquired - enter critical section
+                        active_cs[inst_key] = resource_id
+                        self.timeline.append(ScheduleEvent(
+                            time=float(t), task_id=self.running_task.task_id, event_type='cs_enter',
+                            details={'instance': self.running_task.instance_number, 'resource': resource_id}
+                        ))
+                    else:
+                        # Blocked - cannot execute
+                        self.timeline.append(ScheduleEvent(
+                            time=float(t), task_id=self.running_task.task_id, event_type='blocked',
+                            details={'instance': self.running_task.instance_number, 'resource': resource_id}
+                        ))
+                        continue  # Skip execution this time unit
+
+                # Execute task
+                self.running_task.remaining_time -= 1
+                busy_time += 1
+                new_progress = self._get_execution_progress(self.running_task)
+
+                # Check for critical section exit
+                cs_exit = self._check_cs_exit(self.running_task.task_id, new_progress)
+                if cs_exit:
+                    resource_id, cs = cs_exit
+                    cs.completed = True
+                    self.release_resource(self.running_task.task_id, resource_id)
+                    if inst_key in active_cs:
+                        del active_cs[inst_key]
+                    self.timeline.append(ScheduleEvent(
+                        time=float(t + 1), task_id=self.running_task.task_id, event_type='cs_exit',
+                        details={'instance': self.running_task.instance_number, 'resource': resource_id}
+                    ))
+
+                # Check for task completion
+                if self.running_task.remaining_time <= 0:
+                    # Release any held resources
+                    if inst_key in active_cs:
+                        resource_id = active_cs[inst_key]
+                        self.release_resource(self.running_task.task_id, resource_id)
+                        del active_cs[inst_key]
+
+                    self.timeline.append(ScheduleEvent(
+                        time=float(t + 1), task_id=self.running_task.task_id, event_type='complete',
+                        details={'instance': self.running_task.instance_number}
+                    ))
+                    self.running_task = None
+            elif not next_task:
                 self.timeline.append(ScheduleEvent(
                     time=float(t), task_id=None, event_type='idle', details={}
                 ))
-        
+
         # Sort timeline
         self.timeline.sort(key=lambda e: e.time)
-        
+
         # Calculate context switches
         context_switches = sum(1 for e in self.timeline if e.event_type in ['start', 'preempt'])
-        
+
         # CPU utilization
         cpu_util = busy_time / self.duration if self.duration > 0 else 0.0
-        
+
         return ScheduleResult(
             algorithm=self.__class__.__name__,
             tasks=self.tasks,

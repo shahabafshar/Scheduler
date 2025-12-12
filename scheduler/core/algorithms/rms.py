@@ -15,9 +15,10 @@ class RMSScheduler(SchedulerBase):
     
     def assign_priorities(self) -> None:
         """Assign priorities based on periods (RMS)."""
-        # Sort tasks by period (ascending)
-        sorted_tasks = sorted(self.tasks, key=lambda t: t.period)
-        
+        # Sort tasks by period (ascending), with task ID as tie-breaker for determinism
+        # When periods are equal, lower task ID gets higher priority (consistent ordering)
+        sorted_tasks = sorted(self.tasks, key=lambda t: (t.period, t.id))
+
         # Assign priorities: smaller period = higher priority
         for i, task in enumerate(sorted_tasks):
             task.priority = len(sorted_tasks) - i

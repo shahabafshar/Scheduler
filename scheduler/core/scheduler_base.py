@@ -7,7 +7,11 @@ from .task import PeriodicTask, TaskInstance, ScheduleEvent, ScheduleResult, Cri
 
 class SchedulerBase(ABC):
     """Base class for all scheduling algorithms."""
-    
+
+    # Subclasses with dynamic priority (EDF, LLF) should set this to True
+    # to skip redundant ready queue sorting in the base simulation loop
+    _skip_priority_sort: bool = False
+
     def __init__(self, tasks: List[PeriodicTask], duration: int = 100):
         """
         Initialize scheduler.
@@ -108,30 +112,34 @@ class SchedulerBase(ABC):
             for task in self.tasks:
                 # Check if a new instance should arrive
                 # At time t = 0, P, 2P, 3P, ...
-                periods_passed = t // int(task.period)
-                
+                periods_passed = int(t // task.period)
+
                 if periods_passed > 0:
                     # Check if we already created this instance
-                    existing = [inst for inst in self.task_instances 
-                               if inst.task_id == task.id and inst.arrival_time == float(periods_passed * int(task.period))]
-                    
+                    arrival_time = periods_passed * task.period
+                    existing = [inst for inst in self.task_instances
+                               if inst.task_id == task.id and abs(inst.arrival_time - arrival_time) < 0.001]
+
                     if not existing:
                         # Create new instance
                         instance = TaskInstance(
                             task_id=task.id,
                             instance_number=periods_passed,
-                            arrival_time=float(periods_passed * int(task.period)),
-                            deadline=float(periods_passed * int(task.period) + task.deadline),
+                            arrival_time=arrival_time,
+                            deadline=arrival_time + task.deadline,
                             remaining_time=task.computation_time
                         )
                         self.task_instances.append(instance)
             
             # Update ready queue (active instances)
-            ready_queue = [inst for inst in self.task_instances 
-                          if inst.remaining_time > 0 and t >= inst.arrival_time and t < inst.deadline]
-            
-            # Sort by priority (use task_id as tie-breaker for deterministic results)
-            ready_queue.sort(key=lambda x: (-self.get_task_priority(x.task_id), x.task_id))
+            # Note: Tasks remain eligible even after deadline (they just miss the constraint)
+            # Deadline misses are recorded separately below
+            ready_queue = [inst for inst in self.task_instances
+                          if inst.remaining_time > 0 and t >= inst.arrival_time]
+
+            # Sort by priority (skip for dynamic algorithms like EDF/LLF that use their own selection)
+            if not self._skip_priority_sort:
+                ready_queue.sort(key=lambda x: (-self.get_task_priority(x.task_id), x.task_id))
             
             # Check deadline misses
             for inst in self.task_instances:

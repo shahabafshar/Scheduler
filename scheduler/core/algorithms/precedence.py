@@ -135,7 +135,8 @@ class RMSWithPrecedence(SchedulerBase):
         """
         Compute modified ready times using forward pass in topological order.
 
-        Formula: R_j* = Max(R_j, R_i*) for all predecessors i
+        Formula: R_j* = Max(R_j, R_i* + C_i) for all predecessors i
+        (Successor can't start until predecessor completes)
 
         Returns:
             Dictionary mapping task_id to modified ready time
@@ -154,14 +155,17 @@ class RMSWithPrecedence(SchedulerBase):
             # Base ready time (0 for periodic tasks starting at time 0)
             base_ready = 0.0
 
-            # Find max ready time from predecessors
-            max_pred_ready = 0.0
+            # Find max completion time from predecessors (R_i* + C_i)
+            max_pred_completion = 0.0
             for pred_id in self.predecessor_map.get(task_id, []):
-                if pred_id in modified:
-                    max_pred_ready = max(max_pred_ready, modified[pred_id])
+                pred_task = task_map.get(pred_id)
+                if pred_id in modified and pred_task:
+                    # R_i* + C_i = earliest completion time of predecessor
+                    pred_completion = modified[pred_id] + pred_task.computation_time
+                    max_pred_completion = max(max_pred_completion, pred_completion)
 
             # Modified ready time
-            modified[task_id] = max(base_ready, max_pred_ready)
+            modified[task_id] = max(base_ready, max_pred_completion)
 
         return modified
 
@@ -214,6 +218,9 @@ class RMSWithPrecedence(SchedulerBase):
 
         task_map = {task.id: task for task in self.tasks}
 
+        # Track completion times per (task_id, instance_number) for dynamic precedence
+        self.instance_completion_times: Dict[tuple, float] = {}
+
         # Initialize: create first instances at modified ready times
         for task in self.tasks:
             modified_ready = self.modified_ready_times.get(task.id, 0.0)
@@ -226,7 +233,7 @@ class RMSWithPrecedence(SchedulerBase):
             )
             self.task_instances.append(instance)
 
-        # Track completion times for precedence
+        # Track completion times for precedence (legacy)
         completion_times: Dict[str, float] = {}
 
         # Simulation loop
@@ -236,19 +243,19 @@ class RMSWithPrecedence(SchedulerBase):
             # Create new instances at period boundaries
             for task in self.tasks:
                 if task.period > 0:
-                    instance_number = t // int(task.period)
+                    instance_number = int(t // task.period)
                     if instance_number > 0:
-                        arrival_time = float(instance_number * int(task.period))
-                        # Apply modified ready time offset
-                        modified_ready = self.modified_ready_times.get(task.id, 0.0)
-                        actual_ready = arrival_time + modified_ready
+                        arrival_time = instance_number * task.period
 
                         existing = any(
                             inst.task_id == task.id and inst.instance_number == instance_number
                             for inst in self.task_instances
                         )
 
-                        if not existing and t >= int(arrival_time):
+                        if not existing and t >= arrival_time:
+                            # Calculate dynamic ready time based on predecessor completion
+                            actual_ready = self._get_dynamic_ready_time(task.id, instance_number, arrival_time)
+
                             instance = TaskInstance(
                                 task_id=task.id,
                                 instance_number=instance_number,
@@ -261,17 +268,16 @@ class RMSWithPrecedence(SchedulerBase):
             # Build ready queue - only include tasks whose predecessors are complete
             ready_queue = []
             for inst in self.task_instances:
-                if inst.remaining_time > 0 and t >= inst.arrival_time and t < inst.deadline:
-                    # Check if all predecessors have completed their current instances
+                if inst.remaining_time > 0 and t >= inst.arrival_time:
+                    # Check if all predecessors have completed their corresponding instances
                     predecessors = self.predecessor_map.get(inst.task_id, [])
                     all_preds_done = True
                     for pred_id in predecessors:
-                        # Find corresponding predecessor instance
-                        pred_instances = [
-                            p for p in self.task_instances
-                            if p.task_id == pred_id and p.instance_number == inst.instance_number
-                        ]
-                        if pred_instances and pred_instances[0].remaining_time > 0:
+                        # Find the corresponding predecessor instance based on time overlap
+                        pred_inst = self._find_corresponding_predecessor_instance(
+                            pred_id, inst.task_id, inst.instance_number, task_map
+                        )
+                        if pred_inst and pred_inst.remaining_time > 0:
                             all_preds_done = False
                             break
 
@@ -316,10 +322,14 @@ class RMSWithPrecedence(SchedulerBase):
                 busy_time += 1
 
                 if self.running_task.remaining_time <= 0:
-                    # Task completed
-                    completion_times[self.running_task.task_id] = float(t + 1)
+                    # Task completed - record completion time for precedence tracking
+                    completion_time = float(t + 1)
+                    completion_times[self.running_task.task_id] = completion_time
+                    inst_key = (self.running_task.task_id, self.running_task.instance_number)
+                    self.instance_completion_times[inst_key] = completion_time
+
                     self.timeline.append(ScheduleEvent(
-                        time=float(t + 1), task_id=self.running_task.task_id, event_type='complete',
+                        time=completion_time, task_id=self.running_task.task_id, event_type='complete',
                         details={'instance': self.running_task.instance_number}
                     ))
                     self.running_task = None
@@ -343,6 +353,93 @@ class RMSWithPrecedence(SchedulerBase):
             cpu_utilization=cpu_util,
             response_times={}
         )
+
+    def _get_dynamic_ready_time(self, task_id: str, instance_number: int, base_arrival: float) -> float:
+        """
+        Calculate dynamic ready time based on actual predecessor completion.
+
+        R*_j = Max(arrival_time, completion_time(predecessor_instance))
+
+        Args:
+            task_id: The successor task
+            instance_number: Instance number of the successor
+            base_arrival: Base arrival time for this instance
+
+        Returns:
+            Actual ready time accounting for predecessor completion
+        """
+        task_map = {task.id: task for task in self.tasks}
+        max_ready = base_arrival
+
+        # Check all predecessors
+        for pred_id in self.predecessor_map.get(task_id, []):
+            # Find the corresponding predecessor instance
+            pred_inst_num = self._get_corresponding_pred_instance_number(
+                pred_id, task_id, instance_number, task_map
+            )
+
+            # Get predecessor completion time
+            pred_key = (pred_id, pred_inst_num)
+            if pred_key in self.instance_completion_times:
+                pred_completion = self.instance_completion_times[pred_key]
+                max_ready = max(max_ready, pred_completion)
+
+        return max_ready
+
+    def _get_corresponding_pred_instance_number(self, pred_id: str, succ_id: str,
+                                                 succ_instance: int, task_map: Dict) -> int:
+        """
+        Find the predecessor instance number that corresponds to a successor instance.
+
+        When tasks have different periods, instance numbers don't match directly.
+        We need to find which predecessor instance's execution window overlaps
+        with the successor instance's arrival.
+        """
+        pred_task = task_map.get(pred_id)
+        succ_task = task_map.get(succ_id)
+
+        if not pred_task or not succ_task:
+            return succ_instance  # Fallback
+
+        # Calculate successor arrival time
+        succ_arrival = succ_instance * succ_task.period
+
+        # Find which predecessor instance covers this time
+        # The predecessor instance i covers time [i*P_pred, (i+1)*P_pred)
+        pred_instance = int(succ_arrival // pred_task.period)
+
+        return pred_instance
+
+    def _find_corresponding_predecessor_instance(self, pred_id: str, succ_id: str,
+                                                  succ_instance: int, task_map: Dict) -> Optional[TaskInstance]:
+        """
+        Find the corresponding predecessor instance for a successor instance.
+
+        Also checks for any EARLIER predecessor instances that haven't completed yet.
+        If an earlier predecessor is still running, successor must wait.
+
+        Args:
+            pred_id: Predecessor task ID
+            succ_id: Successor task ID
+            succ_instance: Successor instance number
+            task_map: Map of task_id to task
+
+        Returns:
+            The predecessor TaskInstance that is blocking (incomplete), or None if all done
+        """
+        pred_inst_num = self._get_corresponding_pred_instance_number(
+            pred_id, succ_id, succ_instance, task_map
+        )
+
+        # Check ALL predecessor instances up to and including the corresponding one
+        # If ANY earlier instance is still running, return that (it blocks the successor)
+        for inst in self.task_instances:
+            if inst.task_id == pred_id and inst.instance_number <= pred_inst_num:
+                if inst.remaining_time > 0:
+                    # This predecessor instance is still running - blocks successor
+                    return inst
+
+        return None  # All relevant predecessor instances are complete
 
 
 class DMSWithPrecedence(SchedulerBase):
@@ -388,7 +485,8 @@ class DMSWithPrecedence(SchedulerBase):
         """
         Compute modified ready times using forward pass.
 
-        Formula: R_j* = Max(R_j, R_i*) for all predecessors i
+        Formula: R_j* = Max(R_j, R_i* + C_i) for all predecessors i
+        (Successor can't start until predecessor completes)
         """
         modified = {}
         task_map = {task.id: task for task in self.tasks}
@@ -401,13 +499,16 @@ class DMSWithPrecedence(SchedulerBase):
                 continue
 
             base_ready = 0.0
-            max_pred_ready = 0.0
+            max_pred_completion = 0.0
 
             for pred_id in self.predecessor_map.get(task_id, []):
-                if pred_id in modified:
-                    max_pred_ready = max(max_pred_ready, modified[pred_id])
+                pred_task = task_map.get(pred_id)
+                if pred_id in modified and pred_task:
+                    # R_i* + C_i = earliest completion time of predecessor
+                    pred_completion = modified[pred_id] + pred_task.computation_time
+                    max_pred_completion = max(max_pred_completion, pred_completion)
 
-            modified[task_id] = max(base_ready, max_pred_ready)
+            modified[task_id] = max(base_ready, max_pred_completion)
 
         return modified
 
@@ -515,9 +616,9 @@ class DMSWithPrecedence(SchedulerBase):
             # Create new instances at period boundaries
             for task in self.tasks:
                 if task.period > 0:
-                    instance_number = t // int(task.period)
+                    instance_number = int(t // task.period)
                     if instance_number > 0:
-                        arrival_time = float(instance_number * int(task.period))
+                        arrival_time = instance_number * task.period
                         modified_ready = self.modified_ready_times.get(task.id, 0.0)
                         modified_deadline = self.modified_deadlines.get(task.id, float(task.deadline))
 
@@ -526,7 +627,7 @@ class DMSWithPrecedence(SchedulerBase):
                             for inst in self.task_instances
                         )
 
-                        if not existing and t >= int(arrival_time):
+                        if not existing and t >= arrival_time:
                             instance = TaskInstance(
                                 task_id=task.id,
                                 instance_number=instance_number,
@@ -537,9 +638,10 @@ class DMSWithPrecedence(SchedulerBase):
                             self.task_instances.append(instance)
 
             # Build ready queue with precedence check
+            # Note: Tasks remain eligible even after deadline (they just miss the constraint)
             ready_queue = []
             for inst in self.task_instances:
-                if inst.remaining_time > 0 and t >= inst.arrival_time and t < inst.deadline:
+                if inst.remaining_time > 0 and t >= inst.arrival_time:
                     predecessors = self.predecessor_map.get(inst.task_id, [])
                     all_preds_done = True
                     for pred_id in predecessors:
@@ -628,6 +730,9 @@ class EDFWithPrecedence(SchedulerBase):
 
     Uses dynamic EDF priorities based on modified deadlines.
     """
+
+    # EDF uses dynamic priority selection, skip redundant base class sorting
+    _skip_priority_sort = True
 
     def __init__(self, tasks: List[PeriodicTask], precedences: List[PrecedenceConstraint],
                  duration: int = 100):
@@ -773,9 +878,9 @@ class EDFWithPrecedence(SchedulerBase):
             # Create new instances at period boundaries
             for task in self.tasks:
                 if task.period > 0:
-                    instance_number = t // int(task.period)
+                    instance_number = int(t // task.period)
                     if instance_number > 0:
-                        arrival_time = float(instance_number * int(task.period))
+                        arrival_time = instance_number * task.period
                         modified_ready = self.modified_ready_times.get(task.id, 0.0)
                         modified_deadline = self.modified_deadlines.get(task.id, float(task.deadline))
 
@@ -784,7 +889,7 @@ class EDFWithPrecedence(SchedulerBase):
                             for inst in self.task_instances
                         )
 
-                        if not existing and t >= int(arrival_time):
+                        if not existing and t >= arrival_time:
                             instance = TaskInstance(
                                 task_id=task.id,
                                 instance_number=instance_number,
@@ -795,9 +900,10 @@ class EDFWithPrecedence(SchedulerBase):
                             self.task_instances.append(instance)
 
             # Build ready queue with precedence check
+            # Note: Tasks remain eligible even after deadline (they just miss the constraint)
             ready_queue = []
             for inst in self.task_instances:
-                if inst.remaining_time > 0 and t >= inst.arrival_time and t < inst.deadline:
+                if inst.remaining_time > 0 and t >= inst.arrival_time:
                     predecessors = self.predecessor_map.get(inst.task_id, [])
                     all_preds_done = True
                     for pred_id in predecessors:

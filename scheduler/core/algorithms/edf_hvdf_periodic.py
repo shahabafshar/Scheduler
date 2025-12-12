@@ -5,9 +5,23 @@ from ..scheduler_base import SchedulerBase
 from ..task import PeriodicTask, TaskInstance, ScheduleResult, ScheduleEvent
 
 
-def calculate_value_density(task_instance: TaskInstance, task_values: Dict[str, float]) -> float:
-    """Calculate value density for HVDF scheduling."""
+def calculate_value_density(task_instance: TaskInstance, task_values: Dict[str, float],
+                            task_computation_times: Optional[Dict[str, float]] = None) -> float:
+    """Calculate value density for HVDF scheduling.
+
+    IMPORTANT: Value density = value / computation_time (INVARIANT)
+    This should NOT change during task execution.
+    """
     value = task_values.get(task_instance.task_id, 0.0)
+
+    # Use original computation_time if available (correct HVDF behavior)
+    if task_computation_times and task_instance.task_id in task_computation_times:
+        comp_time = task_computation_times[task_instance.task_id]
+        if comp_time > 0:
+            return value / comp_time
+        return 0.0
+
+    # Fallback: use remaining_time (incorrect but backward compatible)
     if task_instance.remaining_time > 0:
         return value / task_instance.remaining_time
     return 0.0
@@ -16,27 +30,31 @@ def calculate_value_density(task_instance: TaskInstance, task_values: Dict[str, 
 class EDFHVDFPeriodicScheduler(SchedulerBase):
     """
     EDF+HVDF Scheduler for PERIODIC tasks.
-    
+
     - Primary: Earliest Deadline First (EDF)
     - Tie-breaker: Highest Value Density First (HVDF)
     - Mode: Non-preemptive (configurable per task)
     - Task type: Periodic (multiple instances over time)
-    
+
     Tracks value across ALL task instances that meet their deadlines.
     """
-    
+
+    # EDF+HVDF uses dynamic priority selection, skip redundant base class sorting
+    _skip_priority_sort = True
+
     def __init__(self, periodic_tasks: List[PeriodicTask], duration: int = 100):
         """Initialize EDF+HVDF periodic scheduler.
-        
+
         Args:
             periodic_tasks: List of periodic tasks to schedule
             duration: Simulation duration (time window)
         """
         super().__init__(periodic_tasks, duration)
-        
-        # Store task values
+
+        # Store task values and computation times for correct value density
         self.task_values = {task.id: task.value for task in periodic_tasks}
-        
+        self.task_computation_times = {task.id: task.computation_time for task in periodic_tasks}
+
         # Track ALL completed instances for value calculation
         self.completed_instances: List[TaskInstance] = []
         self.total_value_accumulated = 0.0
@@ -48,21 +66,22 @@ class EDFHVDFPeriodicScheduler(SchedulerBase):
     
     def get_next_task(self, ready_queue: List[TaskInstance]) -> Optional[TaskInstance]:
         """Select task with earliest deadline, tie-break by value density.
-        
+
         Args:
             ready_queue: List of ready task instances
-            
+
         Returns:
             Task instance with highest priority (EDF primary, HVDF secondary)
         """
         if not ready_queue:
             return None
-        
-        # Sort by: (deadline ASC, -value_density DESC)
+
+        # Sort by: (deadline ASC, -value_density DESC, task_id for determinism)
         def sort_key(instance: TaskInstance) -> tuple:
-            value_density = calculate_value_density(instance, self.task_values)
-            return (instance.deadline, -value_density)
-        
+            value_density = calculate_value_density(
+                instance, self.task_values, self.task_computation_times)
+            return (instance.deadline, -value_density, instance.task_id)
+
         return min(ready_queue, key=sort_key)
     
     def simulate(self) -> ScheduleResult:

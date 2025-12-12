@@ -8,11 +8,14 @@ from ..task import PeriodicTask, TaskInstance, ScheduleResult
 class EDFScheduler(SchedulerBase):
     """
     Earliest Deadline First (EDF) Scheduling.
-    
+
     Dynamic priority assignment: smaller absolute deadline = higher priority
     EDF is optimal for preemptive scheduling with dynamic priorities.
     """
-    
+
+    # EDF uses dynamic priority selection, skip redundant base class sorting
+    _skip_priority_sort = True
+
     def assign_priorities(self) -> None:
         """EDF doesn't use fixed priorities."""
         # EDF uses dynamic priorities based on absolute deadline

@@ -8,12 +8,15 @@ from ..task import PeriodicTask, TaskInstance, ScheduleResult
 class LLFScheduler(SchedulerBase):
     """
     Least Laxity First (LLF) Scheduling.
-    
+
     Priority assignment: smaller laxity = higher priority
     Laxity = deadline - current_time - remaining_computation_time
     LLF has the same schedulability as EDF but uses dynamic priority by laxity.
     """
-    
+
+    # LLF uses dynamic priority selection, skip redundant base class sorting
+    _skip_priority_sort = True
+
     def assign_priorities(self) -> None:
         """LLF doesn't use fixed priorities."""
         # LLF uses dynamic priorities based on laxity
@@ -24,22 +27,25 @@ class LLFScheduler(SchedulerBase):
     def calculate_laxity(self, instance: TaskInstance, current_time: float) -> float:
         """
         Calculate laxity for a task instance.
-        
+
         Laxity = d_i - (t + c_i')
         where:
         - d_i: deadline
         - t: current time
         - c_i': remaining computation time
-        
+
         Args:
             instance: Task instance
             current_time: Current simulation time
-            
+
         Returns:
-            Laxity value (smaller = higher priority)
+            Laxity value (smaller/more negative = higher priority)
+            Negative laxity means the task is already overdue.
         """
         laxity = instance.deadline - current_time - instance.remaining_time
-        return max(0, laxity)  # Ensure non-negative laxity
+        # Do NOT clamp to 0 - negative laxity indicates overdue tasks
+        # which should have HIGHER priority (most urgent)
+        return laxity
     
     def get_next_task(self, ready_queue: List[TaskInstance]) -> Optional[TaskInstance]:
         """

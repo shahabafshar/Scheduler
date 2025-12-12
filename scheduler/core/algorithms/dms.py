@@ -15,9 +15,10 @@ class DMSScheduler(SchedulerBase):
     
     def assign_priorities(self) -> None:
         """Assign priorities based on relative deadlines (DMS)."""
-        # Sort tasks by relative deadline (ascending)
-        sorted_tasks = sorted(self.tasks, key=lambda t: t.deadline)
-        
+        # Sort tasks by relative deadline (ascending), with task ID as tie-breaker for determinism
+        # When deadlines are equal, lower task ID gets higher priority (consistent ordering)
+        sorted_tasks = sorted(self.tasks, key=lambda t: (t.deadline, t.id))
+
         # Assign priorities: smaller deadline = higher priority
         for i, task in enumerate(sorted_tasks):
             task.priority = len(sorted_tasks) - i

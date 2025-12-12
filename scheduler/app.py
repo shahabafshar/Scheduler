@@ -16,8 +16,13 @@ from scheduler.core.algorithms.dms import DMSScheduler
 from scheduler.core.algorithms.llf import LLFScheduler
 from scheduler.core.algorithms.combined import PollingServerScheduler, DeferrableServerScheduler, SporadicServerScheduler
 from scheduler.core.algorithms.precedence import RMSWithPrecedence, DMSWithPrecedence, EDFWithPrecedence
-from scheduler.core.algorithms.edf_hvdf import EDFHVDFScheduler
+from scheduler.core.algorithms.edf_hvdf import EDFHVDFScheduler, HVDFOnlyScheduler
 from scheduler.core.algorithms.edf_hvdf_periodic import EDFHVDFPeriodicScheduler
+from scheduler.core.algorithms.resource_aware import (
+    ResourceAwareRMSScheduler, ResourceAwareEDFScheduler,
+    ResourceAwareDMSScheduler, ResourceAwareLLFScheduler,
+    create_resource_constraints, map_protocol_name
+)
 from scheduler.core.analysis.schedulability import SchedulabilityAnalyzer
 from scheduler.visualization.gantt import create_gantt_chart, create_priority_timeline
 from scheduler.visualization.metrics_dashboard import create_metrics_dashboard, create_service_level_plot
@@ -629,11 +634,30 @@ def main():
                         preemptive=bool(task.get('preemptive', True)), task_type='periodic'
                     ))
 
+            # Create ResourceConstraint objects if resources enabled
+            resource_constraints = []
+            resource_protocol = "none"
+            if enable_resources and periodic_tasks:
+                # Assign priorities first so we can calculate priority ceiling
+                sorted_by_period = sorted(periodic_tasks, key=lambda t: t.period)
+                for i, task in enumerate(sorted_by_period):
+                    task.priority = len(sorted_by_period) - i
+
+                # Create resource constraints from session state
+                session_resources = st.session_state.get('resources', [])
+                resource_constraints = create_resource_constraints(session_resources, periodic_tasks)
+                resource_protocol = map_protocol_name(st.session_state.get('resource_protocol', 'None'))
+
             # Check if we should run simulation
             run_sim = run_button or st.session_state.get('trigger_simulation', False)
             if run_sim:
                 if 'trigger_simulation' in st.session_state:
                     del st.session_state['trigger_simulation']
+
+                # Show resource protocol info if enabled
+                if enable_resources and resource_constraints:
+                    protocol_display = st.session_state.get('resource_protocol', 'None')
+                    st.info(f"🔒 Resource Protocol: {protocol_display} | {len(resource_constraints)} resource(s) configured")
 
                 # Select scheduler based on algorithm category
                 overload_config = st.session_state.get('overload_config', {})
@@ -667,6 +691,14 @@ def main():
                         else:
                             st.error("No tasks to simulate")
                             scheduler = RMSScheduler([], duration)
+                    elif "HVDF Only" in algorithm:
+                        if aperiodic_tasks:
+                            if periodic_tasks:
+                                st.info(f"Using {len(aperiodic_tasks)} aperiodic task(s). {len(periodic_tasks)} periodic task(s) not used by HVDF Only.")
+                            scheduler = HVDFOnlyScheduler(aperiodic_tasks, duration)
+                        else:
+                            st.error("HVDF Only requires aperiodic tasks. Please add aperiodic tasks (type='aperiodic').")
+                            scheduler = RMSScheduler([], duration)
                     else:
                         scheduler = RMSScheduler(periodic_tasks if periodic_tasks else [], duration)
                 elif algorithm_category == "Overload Handling":
@@ -686,6 +718,68 @@ def main():
                             kd=overload_config.get('kd', 0.05),
                             duration=duration
                         )
+                    elif "Imprecise Computation" in algorithm:
+                        from scheduler.core.task import ImpreciseTask
+                        from scheduler.core.algorithms.overload import ImpreciseComputationScheduler
+                        # Create imprecise tasks from session state data
+                        imprecise_tasks = []
+                        for task_data in st.session_state.get('tasks', []):
+                            if task_data.get('type', 'periodic') == 'periodic':
+                                mand = task_data.get('mandatory_time', task_data.get('computation_time', 1.0))
+                                opt = task_data.get('optional_time', 0.0)
+                                # ImpreciseTask doesn't have period - only id, mandatory_time, optional_time, deadline
+                                imprecise_tasks.append(ImpreciseTask(
+                                    id=task_data.get('id', 'T1'),
+                                    mandatory_time=mand,
+                                    optional_time=opt,
+                                    deadline=task_data.get('deadline', 10.0)
+                                ))
+                        if imprecise_tasks:
+                            scheduler = ImpreciseComputationScheduler(periodic_tasks, imprecise_tasks, duration)
+                        else:
+                            st.warning("No imprecise tasks configured. Using RMS scheduler.")
+                            scheduler = RMSScheduler(periodic_tasks, duration)
+                    elif "HVDF (Value-Based)" in algorithm:
+                        from scheduler.core.algorithms.overload import HVDFScheduler
+                        # Extract task values from periodic tasks
+                        task_values = {t.id: t.value for t in periodic_tasks}
+                        if any(v > 0 for v in task_values.values()):
+                            scheduler = HVDFScheduler(periodic_tasks, task_values, duration)
+                        else:
+                            st.warning("No task values configured. Using RMS scheduler. Add values in the 'Value' column.")
+                            scheduler = RMSScheduler(periodic_tasks, duration)
+                    elif "(m,k)-Firm Tasks" in algorithm:
+                        from scheduler.core.task import MkFirmTask
+                        from scheduler.core.algorithms.overload import MkFirmScheduler
+                        # Parse mk_value from session state
+                        mk_tasks = []
+                        for task_data in st.session_state.get('tasks', []):
+                            if task_data.get('type', 'periodic') == 'periodic':
+                                mk_str = task_data.get('mk_value', '1,2')
+                                try:
+                                    parts = mk_str.split(',')
+                                    m_val = int(parts[0].strip()) if len(parts) > 0 and parts[0].strip() else 1
+                                    k_val = int(parts[1].strip()) if len(parts) > 1 and parts[1].strip() else 2
+                                except (ValueError, IndexError):
+                                    m_val, k_val = 1, 2
+                                comp_time = task_data.get('computation_time', 1.0)
+                                # Default: split computation time equally if not specified
+                                mk_tasks.append(MkFirmTask(
+                                    id=task_data.get('id', 'T1'),
+                                    computation_time=comp_time,
+                                    period=task_data.get('period', 10.0),
+                                    deadline=task_data.get('deadline', 10.0),
+                                    mandatory_time=comp_time * 0.5,  # Default 50% mandatory
+                                    critical_section_time=0.0,      # No critical section by default
+                                    optional_time=comp_time * 0.5,  # Default 50% optional
+                                    m=m_val,
+                                    k=k_val
+                                ))
+                        if mk_tasks:
+                            scheduler = MkFirmScheduler(periodic_tasks, mk_tasks, duration)
+                        else:
+                            st.warning("No (m,k)-firm tasks configured. Using RMS scheduler.")
+                            scheduler = RMSScheduler(periodic_tasks, duration)
                     else:
                         scheduler = RMSScheduler(periodic_tasks, duration)
                 elif algorithm_category == "Precedence-Constrained":
@@ -719,15 +813,36 @@ def main():
                     else:
                         scheduler = PollingServerScheduler(periodic_tasks, aperiodic_tasks, server_cap, server_per, duration)
                 elif algorithm.startswith("RMS"):
-                    scheduler = RMSWithPrecedence(periodic_tasks, prec_objects, duration) if enable_precedence and prec_objects else RMSScheduler(periodic_tasks, duration)
+                    if enable_precedence and prec_objects:
+                        scheduler = RMSWithPrecedence(periodic_tasks, prec_objects, duration)
+                    elif enable_resources and resource_constraints:
+                        scheduler = ResourceAwareRMSScheduler(periodic_tasks, duration, resource_constraints, resource_protocol)
+                    else:
+                        scheduler = RMSScheduler(periodic_tasks, duration)
                 elif algorithm.startswith("EDF"):
-                    scheduler = EDFWithPrecedence(periodic_tasks, prec_objects, duration) if enable_precedence and prec_objects else EDFScheduler(periodic_tasks, duration)
+                    if enable_precedence and prec_objects:
+                        scheduler = EDFWithPrecedence(periodic_tasks, prec_objects, duration)
+                    elif enable_resources and resource_constraints:
+                        scheduler = ResourceAwareEDFScheduler(periodic_tasks, duration, resource_constraints, resource_protocol)
+                    else:
+                        scheduler = EDFScheduler(periodic_tasks, duration)
                 elif algorithm.startswith("DMS"):
-                    scheduler = DMSWithPrecedence(periodic_tasks, prec_objects, duration) if enable_precedence and prec_objects else DMSScheduler(periodic_tasks, duration)
+                    if enable_precedence and prec_objects:
+                        scheduler = DMSWithPrecedence(periodic_tasks, prec_objects, duration)
+                    elif enable_resources and resource_constraints:
+                        scheduler = ResourceAwareDMSScheduler(periodic_tasks, duration, resource_constraints, resource_protocol)
+                    else:
+                        scheduler = DMSScheduler(periodic_tasks, duration)
                 elif algorithm.startswith("LLF"):
-                    scheduler = LLFScheduler(periodic_tasks, duration)
+                    if enable_resources and resource_constraints:
+                        scheduler = ResourceAwareLLFScheduler(periodic_tasks, duration, resource_constraints, resource_protocol)
+                    else:
+                        scheduler = LLFScheduler(periodic_tasks, duration)
                 else:
-                    scheduler = RMSScheduler(periodic_tasks, duration)
+                    if enable_resources and resource_constraints:
+                        scheduler = ResourceAwareRMSScheduler(periodic_tasks, duration, resource_constraints, resource_protocol)
+                    else:
+                        scheduler = RMSScheduler(periodic_tasks, duration)
 
                 # Run simulation and store in session state
                 result = scheduler.simulate()

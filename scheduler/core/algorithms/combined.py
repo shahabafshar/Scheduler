@@ -64,8 +64,8 @@ class ServerScheduler(SchedulerBase):
 
     def assign_priorities(self) -> None:
         """Assign RMS priorities to ALL tasks including server (based on period)."""
-        # RMS: shorter period = higher priority
-        sorted_tasks = sorted(self.tasks, key=lambda t: t.period)
+        # RMS: shorter period = higher priority, with task ID as tie-breaker for determinism
+        sorted_tasks = sorted(self.tasks, key=lambda t: (t.period, t.id))
         for i, task in enumerate(sorted_tasks):
             task.priority = len(sorted_tasks) - i
 
@@ -83,12 +83,12 @@ class ServerScheduler(SchedulerBase):
     def _create_periodic_instances(self, t: int) -> None:
         """Create new periodic task instances at period boundaries."""
         for task in self.periodic_tasks:  # Only periodic tasks, not server
-            periods_passed = t // int(task.period)
-            arrival_time = float(periods_passed * int(task.period))
+            periods_passed = int(t // task.period)
+            arrival_time = periods_passed * task.period
 
             # Check if instance already exists
             existing = [inst for inst in self.task_instances
-                       if inst.task_id == task.id and inst.arrival_time == arrival_time]
+                       if inst.task_id == task.id and abs(inst.arrival_time - arrival_time) < 0.001]
 
             if not existing and arrival_time <= t:
                 instance = TaskInstance(
@@ -102,8 +102,9 @@ class ServerScheduler(SchedulerBase):
 
     def _get_ready_queue(self, t: int) -> List[TaskInstance]:
         """Get periodic tasks ready to execute."""
+        # Note: Tasks remain eligible even after deadline (they just miss the constraint)
         ready = [inst for inst in self.task_instances
-                if inst.remaining_time > 0 and t >= inst.arrival_time and t < inst.deadline]
+                if inst.remaining_time > 0 and t >= inst.arrival_time]
         ready.sort(key=lambda x: self.get_task_priority(x.task_id), reverse=True)
         return ready
 
@@ -218,13 +219,16 @@ class ServerScheduler(SchedulerBase):
 
             # 6. Decide: run server or periodic task?
             server_should_run = self._should_server_run(ready_queue, t)
+            server_executed = False
 
             if server_should_run and self.server_remaining > 0:
                 # Server slot - handle aperiodic tasks
-                executed = self._execute_server_slot(t)
-                if executed:
+                server_executed = self._execute_server_slot(t)
+                if server_executed:
                     busy_time += 1
-            elif ready_queue:
+
+            # If server didn't execute (deferred, no aperiodic, or no capacity), run periodic task
+            if not server_executed and ready_queue:
                 # Run highest priority periodic task
                 next_task = self.get_next_task(ready_queue)
 
@@ -305,9 +309,9 @@ class PollingServerScheduler(ServerScheduler):
 
     def _handle_replenishment(self, t: int) -> None:
         """Replenish at start of each server period."""
-        if t % int(self.server_period) == 0:
+        if self.server_period > 0 and t % self.server_period < 1:
             self.server_remaining = self.server_capacity
-            self.server_next_replenish = t + int(self.server_period)
+            self.server_next_replenish = t + self.server_period
 
     def _execute_server_slot(self, t: int) -> bool:
         """
@@ -370,9 +374,9 @@ class DeferrableServerScheduler(ServerScheduler):
 
     def _handle_replenishment(self, t: int) -> None:
         """Replenish at start of each server period."""
-        if t % int(self.server_period) == 0:
+        if self.server_period > 0 and t % self.server_period < 1:
             self.server_remaining = self.server_capacity
-            self.server_next_replenish = t + int(self.server_period)
+            self.server_next_replenish = t + self.server_period
 
     def _execute_server_slot(self, t: int) -> bool:
         """
@@ -541,9 +545,9 @@ class PriorityExchangeServerScheduler(ServerScheduler):
 
     def _handle_replenishment(self, t: int) -> None:
         """Replenish at start of each server period."""
-        if t % int(self.server_period) == 0:
+        if self.server_period > 0 and t % self.server_period < 1:
             self.server_remaining = self.server_capacity
-            self.server_next_replenish = t + int(self.server_period)
+            self.server_next_replenish = t + self.server_period
             self.exchanged_priority = None  # Reset exchange
 
     def _execute_server_slot(self, t: int) -> bool:
@@ -612,7 +616,8 @@ class BackgroundScheduler(SchedulerBase):
 
     def assign_priorities(self) -> None:
         """Assign RMS priorities to periodic tasks."""
-        sorted_tasks = sorted(self.tasks, key=lambda t: t.period)
+        # RMS: shorter period = higher priority, with task ID as tie-breaker for determinism
+        sorted_tasks = sorted(self.tasks, key=lambda t: (t.period, t.id))
         for i, task in enumerate(sorted_tasks):
             task.priority = len(sorted_tasks) - i
 
@@ -674,11 +679,11 @@ class BackgroundScheduler(SchedulerBase):
 
             # Create new periodic instances
             for task in self.tasks:
-                periods_passed = t // int(task.period)
+                periods_passed = int(t // task.period)
                 if periods_passed > 0:
-                    arrival_time = float(periods_passed * int(task.period))
+                    arrival_time = periods_passed * task.period
                     existing = [inst for inst in self.task_instances
-                               if inst.task_id == task.id and inst.arrival_time == arrival_time]
+                               if inst.task_id == task.id and abs(inst.arrival_time - arrival_time) < 0.001]
                     if not existing:
                         instance = TaskInstance(
                             task_id=task.id,
@@ -690,8 +695,9 @@ class BackgroundScheduler(SchedulerBase):
                         self.task_instances.append(instance)
 
             # Build ready queue
+            # Note: Tasks remain eligible even after deadline (they just miss the constraint)
             ready_queue = [inst for inst in self.task_instances
-                          if inst.remaining_time > 0 and t >= inst.arrival_time and t < inst.deadline]
+                          if inst.remaining_time > 0 and t >= inst.arrival_time]
             ready_queue.sort(key=lambda x: (-self.get_task_priority(x.task_id), x.task_id))
 
             # Check deadline misses

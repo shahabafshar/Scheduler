@@ -105,31 +105,33 @@ class FeedbackMkFirmScheduler(SchedulerBase):
             
             # Create new task instances
             for task in self.tasks:
-                periods_passed = t // int(task.period)
-                
+                periods_passed = int(t // task.period)
+
                 if periods_passed > 0:
-                    existing = [inst for inst in self.task_instances 
-                               if inst.task_id == task.id 
-                               and abs(inst.arrival_time - float(periods_passed * int(task.period))) < 0.001]
-                    
+                    arrival_time = periods_passed * task.period
+                    existing = [inst for inst in self.task_instances
+                               if inst.task_id == task.id
+                               and abs(inst.arrival_time - arrival_time) < 0.001]
+
                     if not existing:
                         instance = TaskInstance(
                             task_id=task.id,
                             instance_number=periods_passed,
-                            arrival_time=float(periods_passed * int(task.period)),
-                            deadline=float(periods_passed * int(task.period) + task.deadline),
+                            arrival_time=arrival_time,
+                            deadline=arrival_time + task.deadline,
                             remaining_time=task.computation_time
                         )
                         self.task_instances.append(instance)
             
             # Update ready queue
-            ready_queue = [inst for inst in self.task_instances 
-                          if inst.remaining_time > 0 and t >= inst.arrival_time and t < inst.deadline]
+            # Note: Tasks remain eligible even after deadline (they just miss the constraint)
+            ready_queue = [inst for inst in self.task_instances
+                          if inst.remaining_time > 0 and t >= inst.arrival_time]
             ready_queue.sort(key=lambda x: (-self.get_task_priority(x.task_id), x.task_id))
             
-            # Check deadline misses
+            # Check deadline misses (t > deadline, not >=, since at t=deadline task is still "at deadline")
             for inst in self.task_instances:
-                if inst.remaining_time > 0 and t >= inst.deadline:
+                if inst.remaining_time > 0 and t > inst.deadline:
                     if not any(dm.details.get('instance') == inst.instance_number 
                               for dm in self.deadline_misses if dm.task_id == inst.task_id):
                         self.deadline_misses.append(ScheduleEvent(
