@@ -95,7 +95,7 @@ class EDFHVDFPeriodicScheduler(SchedulerBase):
         # Initialize tracking
         self.task_instances: List[TaskInstance] = []
         self.timeline: List[ScheduleEvent] = []
-        self.deadline_misses: List[TaskInstance] = []
+        self.deadline_misses: List[ScheduleEvent] = []  # Must be ScheduleEvent for ScheduleResult
         self.completed_instances = []
         self.total_value_accumulated = 0.0
         self.current_time = 0.0
@@ -136,25 +136,30 @@ class EDFHVDFPeriodicScheduler(SchedulerBase):
                         )
                         self.task_instances.append(instance)
             
-            # Build ready queue (arrived, not completed, before deadline)
+            # Build ready queue - include past-deadline tasks (they continue to execute)
             ready_queue = [
                 inst for inst in self.task_instances
-                if inst.arrival_time <= time and 
-                   inst.remaining_time > 0 and
-                   time <= inst.deadline
+                if inst.arrival_time <= time and inst.remaining_time > 0
             ]
-            
-            # Check for deadline misses
+
+            # Check for deadline misses (record once per instance)
             for inst in self.task_instances:
                 if inst.remaining_time > 0 and time > inst.deadline:
-                    if inst not in self.deadline_misses:
-                        self.deadline_misses.append(inst)
-                        self.timeline.append(ScheduleEvent(
-                            time=time,
+                    # Check if already recorded this miss
+                    already_recorded = any(
+                        dm.task_id == inst.task_id and
+                        dm.details.get('instance') == inst.instance_number
+                        for dm in self.deadline_misses
+                    )
+                    if not already_recorded:
+                        miss_event = ScheduleEvent(
+                            time=inst.deadline,  # Record at actual deadline time
                             task_id=inst.task_id,
                             event_type='deadline_miss',
                             details={'instance': inst.instance_number}
-                        ))
+                        )
+                        self.deadline_misses.append(miss_event)
+                        self.timeline.append(miss_event)
             
             # Handle non-preemptive task continuation
             if self.running_task is not None and not running_task_preemptive:

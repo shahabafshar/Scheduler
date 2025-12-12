@@ -275,16 +275,18 @@ class FeedbackMkFirmScheduler(SchedulerBase):
         self.previous_error = error
         
         # Adjust each task's m value based on control signal
+        # Higher m = STRICTER (more deadlines must be met)
+        # Lower m = MORE LENIENT (fewer deadlines must be met)
         for task in self.mk_tasks:
             current_m = self.current_m_values[task.id]
-            
-            if control_signal > 0.1:  # DFR too high - increase m (more lenient)
-                if current_m < task.k:
-                    self.current_m_values[task.id] = min(current_m + 1, task.k)
-            elif control_signal < -0.1:  # DFR too low - decrease m (stricter)
+
+            if control_signal > 0.1:  # DFR too high (too many failures) - decrease m (more lenient)
                 if current_m > 1:
                     self.current_m_values[task.id] = max(current_m - 1, 1)
-            
+            elif control_signal < -0.1:  # DFR too low (few failures) - increase m (stricter)
+                if current_m < task.k:
+                    self.current_m_values[task.id] = min(current_m + 1, task.k)
+
             # Note: Adjusted m values affect future guarantee checking
             # but don't change already-started task instances
 

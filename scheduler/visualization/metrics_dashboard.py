@@ -5,6 +5,7 @@ from plotly.subplots import make_subplots
 from typing import List
 import pandas as pd
 from scheduler.core.task import ScheduleResult
+from scheduler.visualization.colors import get_task_color_map, extract_task_ids_from_result, TASK_COLOR_PALETTE
 
 
 def create_metrics_dashboard(result: ScheduleResult) -> go.Figure:
@@ -46,18 +47,25 @@ def create_metrics_dashboard(result: ScheduleResult) -> go.Figure:
             row=1, col=1
         )
 
-    # 2. Utilization by Task
+    # 2. Utilization by Task (using shared colors for consistency with Gantt chart)
     task_utilization = {}
     for task in result.tasks:
         exec_time = sum(1 for e in result.events if e.task_id == task.id and e.event_type == 'complete')
         task_utilization[task.id] = exec_time
 
     if task_utilization:
+        # Get consistent colors using ALL task IDs from result (matching Gantt chart)
+        all_task_ids = extract_task_ids_from_result(result)
+        task_colors = get_task_color_map(all_task_ids)
+        task_ids = sorted(task_utilization.keys())
+        pie_colors = [task_colors[tid] for tid in task_ids]
+
         fig.add_trace(
             go.Pie(
-                labels=list(task_utilization.keys()),
-                values=list(task_utilization.values()),
-                name='Task Utilization'
+                labels=task_ids,
+                values=[task_utilization[tid] for tid in task_ids],
+                name='Task Utilization',
+                marker=dict(colors=pie_colors)
             ),
             row=1, col=2
         )
@@ -74,19 +82,25 @@ def create_metrics_dashboard(result: ScheduleResult) -> go.Figure:
 def create_response_time_chart(result: ScheduleResult) -> go.Figure:
     """Create response time chart for each task."""
     fig = go.Figure()
-    
+
+    # Get consistent task colors using ALL task IDs from result
+    all_task_ids = extract_task_ids_from_result(result)
+    task_colors = get_task_color_map(all_task_ids)
+
     for task in result.tasks:
         task_events = [e for e in result.events if e.task_id == task.id]
         if task_events:
             times = [e.time for e in task_events]
             response_times = [e.time for e in task_events if e.event_type == 'complete']
-            
+
             if response_times:
                 fig.add_trace(go.Scatter(
                     x=list(range(len(response_times))),
                     y=response_times,
                     mode='lines+markers',
-                    name=task.id
+                    name=task.id,
+                    line=dict(color=task_colors.get(task.id)),
+                    marker=dict(color=task_colors.get(task.id))
                 ))
     
     fig.update_layout(
@@ -155,21 +169,25 @@ def create_service_level_plot(result: ScheduleResult) -> go.Figure:
         return fig
     
     fig = go.Figure()
-    
-    # Group by task
-    tasks = set(item['task'] for item in service_level_data)
-    
+
+    # Group by task and get consistent colors using ALL task IDs from result
+    all_task_ids = extract_task_ids_from_result(result)
+    task_colors = get_task_color_map(all_task_ids)
+    tasks = sorted(set(item['task'] for item in service_level_data if item['task']))
+
     for task in tasks:
         task_data = [item for item in service_level_data if item['task'] == task]
         times = [item['time'] for item in task_data]
         versions = [item['version'] for item in task_data]
-        
+        color = task_colors.get(task)
+
         fig.add_trace(go.Scatter(
             x=times,
             y=versions,
             mode='markers+lines',
             name=task,
-            marker=dict(size=8),
+            marker=dict(size=8, color=color),
+            line=dict(color=color),
             hovertemplate=f'<b>{task}</b><br>Time: %{{x}}<br>Version: %{{y}}<extra></extra>'
         ))
     

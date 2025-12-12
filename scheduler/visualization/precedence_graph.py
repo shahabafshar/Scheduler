@@ -3,6 +3,7 @@
 import plotly.graph_objects as go
 from typing import List, Dict, Optional
 from scheduler.core.task import PrecedenceConstraint, PeriodicTask, ScheduleResult
+from scheduler.visualization.colors import get_task_color_map
 
 
 def create_precedence_graph(precedence_constraints: List[PrecedenceConstraint], 
@@ -67,10 +68,20 @@ def create_precedence_graph(precedence_constraints: List[PrecedenceConstraint],
         showlegend=False
     ))
     
-    # Add nodes
-    node_x = [pos[0] for pos in positions.values()]
-    node_y = [pos[1] for pos in positions.values()]
-    
+    # Add nodes with consistent colors (matching Gantt chart)
+    sorted_task_ids = sorted(task_to_node.keys())
+    node_x = [positions[tid][0] for tid in sorted_task_ids]
+    node_y = [positions[tid][1] for tid in sorted_task_ids]
+
+    # Get consistent colors for tasks - include ALL tasks (not just those in graph)
+    # This ensures color consistency with other visualizations
+    all_task_ids = sorted_task_ids
+    if tasks:
+        # Include task IDs from tasks list that may not be in precedence graph
+        all_task_ids = sorted(set(sorted_task_ids) | set(t.id for t in tasks if hasattr(t, 'id')))
+    task_colors = get_task_color_map(all_task_ids)
+    node_colors = [task_colors[tid] for tid in sorted_task_ids]
+
     # Add node trace
     fig.add_trace(go.Scatter(
         x=node_x, y=node_y,
@@ -78,12 +89,12 @@ def create_precedence_graph(precedence_constraints: List[PrecedenceConstraint],
         marker=dict(
             symbol='circle',
             size=60,
-            color='lightblue',
+            color=node_colors,
             line=dict(width=2, color='black')
         ),
-        text=[task_id for task_id in sorted(task_to_node.keys())],
+        text=sorted_task_ids,
         textposition="middle center",
-        textfont=dict(size=14, color='black'),
+        textfont=dict(size=14, color='white', family='Arial Black'),
         hovertemplate='<b>%{text}</b><extra></extra>',
         name='Tasks',
         showlegend=False

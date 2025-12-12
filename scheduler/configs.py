@@ -286,6 +286,13 @@ PRESET_CATALOG = {
         "description": "High load periodic + frequent aperiodic arrivals",
         "config": {"server_capacity": 3.0, "server_period": 8.0}
     },
+    "server_background": {
+        "name": "Background Scheduler (Baseline)",
+        "category": "Server-Based (Combined)",
+        "algorithm": "Background Scheduler",
+        "tasks": SERVER_EXAMPLE_1,
+        "description": "Aperiodic tasks execute only during CPU idle time (worst-case baseline)"
+    },
 
     # ===== PRECEDENCE-CONSTRAINED =====
     "prec_rms_chain": {

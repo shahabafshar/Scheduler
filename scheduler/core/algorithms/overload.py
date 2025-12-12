@@ -489,6 +489,15 @@ class MkFirmScheduler(SchedulerBase):
                         self.record_deadline_result(self.running_task.task_id, met_deadline)
                         self.completed_instances.add(inst_key)
 
+                        # Record deadline miss event if task completed after deadline
+                        if not met_deadline:
+                            self.deadline_misses.append(ScheduleEvent(
+                                time=float(self.running_task.deadline),
+                                task_id=self.running_task.task_id,
+                                event_type='deadline_miss',
+                                details={'instance': self.running_task.instance_number}
+                            ))
+
                     self.timeline.append(ScheduleEvent(
                         time=float(completion_time), task_id=self.running_task.task_id, event_type='complete',
                         details={'instance': self.running_task.instance_number, 'met_deadline': met_deadline}

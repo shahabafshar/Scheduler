@@ -2,10 +2,13 @@
 
 Implements RMS, DMS, and EDF with precedence constraints per CprE 458/558.
 
-Key formulas:
-- RMS: R_j* = Max(R_j, R_i*) for all predecessors i (forward pass only)
-- DMS: R_j* = Max(R_j, R_i*), D_j* = Max(D_j, D_i*) (forward + backward)
+Key formulas (all include predecessor completion time C_i):
+- RMS: R_j* = Max(R_j, R_i* + C_i) for all predecessors i (forward pass)
+- DMS: R_j* = Max(R_j, R_i* + C_i), D_j* = Max(D_j, D_i*) (forward for both)
 - EDF: R_j* = Max(R_j, R_i* + C_i), D_i* = Min(D_i, D_j* - C_j) (forward + backward)
+
+Note: DMS uses forward deadline propagation (successors inherit max from predecessors),
+while EDF uses backward deadline propagation (predecessors constrained by successors).
 """
 
 from typing import List, Optional, Dict, Set
@@ -287,9 +290,9 @@ class RMSWithPrecedence(SchedulerBase):
             # Sort by priority (use task_id as tie-breaker for deterministic results)
             ready_queue.sort(key=lambda x: (-self.get_task_priority(x.task_id), x.task_id))
 
-            # Check deadline misses
+            # Check deadline misses (t > deadline, not >=, per RT theory)
             for inst in self.task_instances:
-                if inst.remaining_time > 0 and t >= inst.deadline:
+                if inst.remaining_time > 0 and t > inst.deadline:
                     if not any(dm.details.get('instance') == inst.instance_number
                               for dm in self.deadline_misses if dm.task_id == inst.task_id):
                         self.deadline_misses.append(ScheduleEvent(
@@ -514,12 +517,13 @@ class DMSWithPrecedence(SchedulerBase):
 
     def _compute_modified_deadlines(self) -> Dict[str, float]:
         """
-        Compute modified deadlines using backward pass.
+        Compute modified deadlines using forward pass (DMS-style).
 
         Formula: D_j* = Max(D_j, D_i*) for all predecessors i
-        (Equivalently: D_i* = Max(D_i, D_j*) for all successors j)
 
-        Note: For DMS, deadlines propagate FORWARD (successors get max of predecessor deadlines).
+        This ensures successors have deadlines at least as late as their predecessors,
+        which prevents impossible scheduling where successor deadline < predecessor deadline.
+        Note: This differs from EDF which uses backward propagation (Min formula).
         """
         modified = {}
         task_map = {task.id: task for task in self.tasks}

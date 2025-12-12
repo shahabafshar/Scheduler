@@ -14,7 +14,7 @@ from scheduler.core.algorithms.rms import RMSScheduler
 from scheduler.core.algorithms.edf import EDFScheduler
 from scheduler.core.algorithms.dms import DMSScheduler
 from scheduler.core.algorithms.llf import LLFScheduler
-from scheduler.core.algorithms.combined import PollingServerScheduler, DeferrableServerScheduler, SporadicServerScheduler
+from scheduler.core.algorithms.combined import PollingServerScheduler, DeferrableServerScheduler, SporadicServerScheduler, BackgroundScheduler
 from scheduler.core.algorithms.precedence import RMSWithPrecedence, DMSWithPrecedence, EDFWithPrecedence
 from scheduler.core.algorithms.edf_hvdf import EDFHVDFScheduler, HVDFOnlyScheduler
 from scheduler.core.algorithms.edf_hvdf_periodic import EDFHVDFPeriodicScheduler
@@ -323,7 +323,7 @@ def main():
         if algorithm_category == "Basic Algorithms":
             options = ["RMS (Rate Monotonic)", "EDF (Earliest Deadline First)", "DMS (Deadline Monotonic)", "LLF (Least Laxity First)"]
         elif algorithm_category == "Server-Based (Combined)":
-            options = ["Polling Server", "Deferrable Server", "Sporadic Server"]
+            options = ["Polling Server", "Deferrable Server", "Sporadic Server", "Background Scheduler"]
         elif algorithm_category == "Precedence-Constrained":
             options = ["RMS with Precedence", "EDF with Precedence", "DMS with Precedence"]
         elif algorithm_category == "Overload Handling":
@@ -810,6 +810,9 @@ def main():
                         scheduler = DeferrableServerScheduler(periodic_tasks, aperiodic_tasks, server_cap, server_per, duration)
                     elif "Sporadic" in algorithm:
                         scheduler = SporadicServerScheduler(periodic_tasks, aperiodic_tasks, server_cap, server_per, duration)
+                    elif "Background" in algorithm:
+                        # Background Scheduler doesn't use server capacity/period
+                        scheduler = BackgroundScheduler(periodic_tasks, aperiodic_tasks, duration)
                     else:
                         scheduler = PollingServerScheduler(periodic_tasks, aperiodic_tasks, server_cap, server_per, duration)
                 elif algorithm.startswith("RMS"):

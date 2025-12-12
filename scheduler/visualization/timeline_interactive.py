@@ -3,6 +3,7 @@
 import plotly.graph_objects as go
 from typing import List, Optional, Dict
 from scheduler.core.task import ScheduleResult, ScheduleEvent
+from scheduler.visualization.colors import get_task_color_map, extract_task_ids_from_result, EVENT_COLORS, CURRENT_HIGHLIGHT_COLOR
 
 
 def create_timeline_step_viewer(result: ScheduleResult, current_step: int = 0) -> dict:
@@ -68,16 +69,9 @@ def create_timeline_step_viewer(result: ScheduleResult, current_step: int = 0) -
     running_task = None
     start_time = 0
 
-    # Color palette
-    color_palette = [
-        '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
-        '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'
-    ]
-
-    # Get all unique task IDs for consistent coloring
-    all_task_ids = sorted(set(e.task_id for e in result.events if e.task_id))
-    task_colors = {task_id: color_palette[i % len(color_palette)]
-                   for i, task_id in enumerate(all_task_ids)}
+    # Get ALL task IDs from result for consistent coloring (shared across all visualizations)
+    all_task_ids = extract_task_ids_from_result(result)
+    task_colors = get_task_color_map(all_task_ids)
 
     # Process events up to current step
     for i, event in enumerate(result.events[:current_step + 1]):
@@ -135,7 +129,7 @@ def create_timeline_step_viewer(result: ScheduleResult, current_step: int = 0) -
                     legend_shown.add(task_id)
 
                 # Use brighter color for current event, normal for past
-                bar_color = color if not is_current else 'gold'
+                bar_color = color if not is_current else CURRENT_HIGHLIGHT_COLOR
                 border_color = 'black' if is_current else color
 
                 fig.add_trace(go.Bar(
@@ -161,13 +155,13 @@ def create_timeline_step_viewer(result: ScheduleResult, current_step: int = 0) -
         annotation_position="top"
     )
 
-    # Add event markers
+    # Add event markers (using shared event colors for consistency)
     event_markers = {
-        'start': ('triangle-up', 'green', 12),
-        'complete': ('circle', 'blue', 10),
-        'preempt': ('diamond', 'orange', 10),
-        'deadline_miss': ('x', 'red', 15),
-        'idle': ('square', 'gray', 8),
+        'start': ('triangle-up', EVENT_COLORS['start'], 12),
+        'complete': ('circle', EVENT_COLORS['complete'], 10),
+        'preempt': ('diamond', EVENT_COLORS['preempt'], 10),
+        'deadline_miss': ('x', EVENT_COLORS['deadline_miss'], 15),
+        'idle': ('square', EVENT_COLORS['idle'], 8),
     }
 
     # Show current event marker

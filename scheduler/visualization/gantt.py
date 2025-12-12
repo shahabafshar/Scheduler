@@ -4,6 +4,7 @@ import plotly.graph_objects as go
 from typing import List, Dict, Optional
 import pandas as pd
 from scheduler.core.task import ScheduleEvent, ScheduleResult
+from scheduler.visualization.colors import get_task_color_map, extract_task_ids_from_result, DEADLINE_MARKER_COLOR
 
 
 def create_gantt_chart(result: ScheduleResult, max_time: Optional[int] = None) -> go.Figure:
@@ -65,19 +66,18 @@ def create_gantt_chart(result: ScheduleResult, max_time: Optional[int] = None) -
     
     # Create traces for each task
     task_ids = sorted(set(task_id for task_id in task_intervals.keys() if task_id))
-    color_palette = [
-        '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
-        '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'
-    ]
+
+    # Use ALL task IDs from result for consistent color mapping across all visualizations
+    all_task_ids = extract_task_ids_from_result(result)
+    colors = get_task_color_map(all_task_ids)
 
     fig = go.Figure()
 
     # Track which tasks have already been added to the legend
     legend_shown = set()
 
-    for idx, task_id in enumerate(task_ids):
-        color = color_palette[idx % len(color_palette)]
-        colors[task_id] = color
+    for task_id in task_ids:
+        color = colors[task_id]
 
         intervals = task_intervals[task_id]
 
@@ -112,7 +112,7 @@ def create_gantt_chart(result: ScheduleResult, max_time: Optional[int] = None) -
             x=deadline_times,
             y=deadline_tasks,
             mode='markers',
-            marker=dict(symbol='x', size=15, color='red'),
+            marker=dict(symbol='x', size=15, color=DEADLINE_MARKER_COLOR),
             name='Deadline Miss',
             showlegend=True
         ))
@@ -244,19 +244,25 @@ def create_priority_timeline(result: ScheduleResult, max_time: Optional[int] = N
             priority_data[task_id].append((event.time, priority, task_id))
     
     fig = go.Figure()
-    
+
+    # Get consistent colors using ALL task IDs from result
+    all_task_ids = extract_task_ids_from_result(result)
+    task_colors = get_task_color_map(all_task_ids)
+
     for task_id, points in priority_data.items():
         if points:
             times = [p[0] for p in points]
             priorities = [p[1] for p in points]
-            
-            # Add scatter plot with color intensity based on priority
+            color = task_colors.get(task_id, '#7f7f7f')
+
+            # Add scatter plot with consistent color matching other visualizations
             fig.add_trace(go.Scatter(
                 x=times,
                 y=priorities,
                 mode='markers+lines',
                 name=task_id,
-                marker=dict(size=10),
+                marker=dict(size=10, color=color),
+                line=dict(color=color),
                 hovertemplate=f'<b>{task_id}</b><br>Time: %{{x}}<br>Priority: %{{y}}<extra></extra>'
             ))
     
