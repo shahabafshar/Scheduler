@@ -36,8 +36,8 @@ class EDFScheduler(SchedulerBase):
         if not ready_queue:
             return None
         
-        # Return task with earliest deadline
-        return min(ready_queue, key=lambda t: t.deadline)
+        # Return task with earliest deadline (tie-break by task_id for determinism)
+        return min(ready_queue, key=lambda t: (t.deadline, t.task_id))
     
     def simulate(self) -> ScheduleResult:
         """Run EDF simulation."""

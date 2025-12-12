@@ -60,9 +60,9 @@ class LLFScheduler(SchedulerBase):
         if not ready_queue:
             return None
         
-        # Return task with smallest laxity
+        # Return task with smallest laxity (tie-break by task_id for determinism)
         # Note: Base class passes current_time through self.current_time
-        return min(ready_queue, key=lambda t: self.calculate_laxity(t, self.current_time))
+        return min(ready_queue, key=lambda t: (self.calculate_laxity(t, self.current_time), t.task_id))
     
     def process_time_unit(self, time: float) -> None:
         """Process time unit (current_time updated in base class)."""

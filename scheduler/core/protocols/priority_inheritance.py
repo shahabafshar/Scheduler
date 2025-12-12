@@ -141,10 +141,12 @@ class PriorityInheritanceProtocol:
             if task_obj:
                 task_obj.priority = base_priority
         else:
-            # Still blocking - find highest priority among blocked tasks
+            # Still blocking - find highest CURRENT priority among blocked tasks
+            # Use task_priorities (not base_priorities) for transitive blocking support
+            # If A blocks B, and B has already inherited C's priority, A should get C's priority
             max_inherited = base_priority
             for blocked_task in self.is_blocking.get(task_id, set()):
-                blocked_priority = self.base_priorities.get(blocked_task, 0)
+                blocked_priority = self.task_priorities.get(blocked_task, 0)
                 max_inherited = max(max_inherited, blocked_priority)
 
             self.task_priorities[task_id] = max_inherited

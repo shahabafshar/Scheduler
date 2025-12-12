@@ -141,9 +141,9 @@ class SchedulerBase(ABC):
             if not self._skip_priority_sort:
                 ready_queue.sort(key=lambda x: (-self.get_task_priority(x.task_id), x.task_id))
             
-            # Check deadline misses
+            # Check deadline misses (t > deadline, not >=, since at t=deadline task is still "at deadline")
             for inst in self.task_instances:
-                if inst.remaining_time > 0 and t >= inst.deadline:
+                if inst.remaining_time > 0 and t > inst.deadline:
                     if not any(dm.details.get('instance') == inst.instance_number 
                               for dm in self.deadline_misses if dm.task_id == inst.task_id):
                         self.deadline_misses.append(ScheduleEvent(

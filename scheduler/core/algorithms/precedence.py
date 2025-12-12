@@ -578,6 +578,46 @@ class DMSWithPrecedence(SchedulerBase):
             return None
         return ready_queue[0]
 
+    def _get_corresponding_pred_instance_number(self, pred_id: str, succ_id: str,
+                                                 succ_instance: int, task_map: Dict) -> int:
+        """
+        Find the predecessor instance number that corresponds to a successor instance.
+
+        When tasks have different periods, instance numbers don't match directly.
+        """
+        pred_task = task_map.get(pred_id)
+        succ_task = task_map.get(succ_id)
+
+        if not pred_task or not succ_task:
+            return succ_instance  # Fallback
+
+        # Calculate successor arrival time
+        succ_arrival = succ_instance * succ_task.period
+
+        # Find which predecessor instance covers this time
+        pred_instance = int(succ_arrival // pred_task.period)
+
+        return pred_instance
+
+    def _find_corresponding_predecessor_instance(self, pred_id: str, succ_id: str,
+                                                  succ_instance: int, task_map: Dict) -> Optional[TaskInstance]:
+        """
+        Find the corresponding predecessor instance for a successor instance.
+
+        Also checks for any EARLIER predecessor instances that haven't completed yet.
+        """
+        pred_inst_num = self._get_corresponding_pred_instance_number(
+            pred_id, succ_id, succ_instance, task_map
+        )
+
+        # Check ALL predecessor instances up to and including the corresponding one
+        for inst in self.task_instances:
+            if inst.task_id == pred_id and inst.instance_number <= pred_inst_num:
+                if inst.remaining_time > 0:
+                    return inst  # This predecessor instance is still running
+
+        return None  # All relevant predecessor instances are complete
+
     def simulate(self) -> ScheduleResult:
         """Run DMS simulation with precedence-modified parameters."""
         # Compute modified parameters
@@ -637,7 +677,7 @@ class DMSWithPrecedence(SchedulerBase):
                             )
                             self.task_instances.append(instance)
 
-            # Build ready queue with precedence check
+            # Build ready queue with precedence check (using period-aware instance matching)
             # Note: Tasks remain eligible even after deadline (they just miss the constraint)
             ready_queue = []
             for inst in self.task_instances:
@@ -645,11 +685,11 @@ class DMSWithPrecedence(SchedulerBase):
                     predecessors = self.predecessor_map.get(inst.task_id, [])
                     all_preds_done = True
                     for pred_id in predecessors:
-                        pred_instances = [
-                            p for p in self.task_instances
-                            if p.task_id == pred_id and p.instance_number == inst.instance_number
-                        ]
-                        if pred_instances and pred_instances[0].remaining_time > 0:
+                        # Use period-aware instance matching for different periods
+                        pred_inst = self._find_corresponding_predecessor_instance(
+                            pred_id, inst.task_id, inst.instance_number, task_map
+                        )
+                        if pred_inst and pred_inst.remaining_time > 0:
                             all_preds_done = False
                             break
 
@@ -659,9 +699,9 @@ class DMSWithPrecedence(SchedulerBase):
             # Sort by priority (use task_id as tie-breaker for deterministic results)
             ready_queue.sort(key=lambda x: (-self.get_task_priority(x.task_id), x.task_id))
 
-            # Check deadline misses
+            # Check deadline misses (t > deadline, not >=)
             for inst in self.task_instances:
-                if inst.remaining_time > 0 and t >= inst.deadline:
+                if inst.remaining_time > 0 and t > inst.deadline:
                     if not any(dm.details.get('instance') == inst.instance_number
                               for dm in self.deadline_misses if dm.task_id == inst.task_id):
                         self.deadline_misses.append(ScheduleEvent(
@@ -840,8 +880,48 @@ class EDFWithPrecedence(SchedulerBase):
         if not ready_queue:
             return None
 
-        # Sort by modified deadline (earliest first)
-        return min(ready_queue, key=lambda inst: inst.deadline)
+        # Sort by modified deadline (earliest first), tie-break by task_id for determinism
+        return min(ready_queue, key=lambda inst: (inst.deadline, inst.task_id))
+
+    def _get_corresponding_pred_instance_number(self, pred_id: str, succ_id: str,
+                                                 succ_instance: int, task_map: Dict) -> int:
+        """
+        Find the predecessor instance number that corresponds to a successor instance.
+
+        When tasks have different periods, instance numbers don't match directly.
+        """
+        pred_task = task_map.get(pred_id)
+        succ_task = task_map.get(succ_id)
+
+        if not pred_task or not succ_task:
+            return succ_instance  # Fallback
+
+        # Calculate successor arrival time
+        succ_arrival = succ_instance * succ_task.period
+
+        # Find which predecessor instance covers this time
+        pred_instance = int(succ_arrival // pred_task.period)
+
+        return pred_instance
+
+    def _find_corresponding_predecessor_instance(self, pred_id: str, succ_id: str,
+                                                  succ_instance: int, task_map: Dict) -> Optional[TaskInstance]:
+        """
+        Find the corresponding predecessor instance for a successor instance.
+
+        Also checks for any EARLIER predecessor instances that haven't completed yet.
+        """
+        pred_inst_num = self._get_corresponding_pred_instance_number(
+            pred_id, succ_id, succ_instance, task_map
+        )
+
+        # Check ALL predecessor instances up to and including the corresponding one
+        for inst in self.task_instances:
+            if inst.task_id == pred_id and inst.instance_number <= pred_inst_num:
+                if inst.remaining_time > 0:
+                    return inst  # This predecessor instance is still running
+
+        return None  # All relevant predecessor instances are complete
 
     def simulate(self) -> ScheduleResult:
         """Run EDF simulation with precedence-modified parameters."""
@@ -899,7 +979,7 @@ class EDFWithPrecedence(SchedulerBase):
                             )
                             self.task_instances.append(instance)
 
-            # Build ready queue with precedence check
+            # Build ready queue with precedence check (using period-aware instance matching)
             # Note: Tasks remain eligible even after deadline (they just miss the constraint)
             ready_queue = []
             for inst in self.task_instances:
@@ -907,20 +987,20 @@ class EDFWithPrecedence(SchedulerBase):
                     predecessors = self.predecessor_map.get(inst.task_id, [])
                     all_preds_done = True
                     for pred_id in predecessors:
-                        pred_instances = [
-                            p for p in self.task_instances
-                            if p.task_id == pred_id and p.instance_number == inst.instance_number
-                        ]
-                        if pred_instances and pred_instances[0].remaining_time > 0:
+                        # Use period-aware instance matching for different periods
+                        pred_inst = self._find_corresponding_predecessor_instance(
+                            pred_id, inst.task_id, inst.instance_number, task_map
+                        )
+                        if pred_inst and pred_inst.remaining_time > 0:
                             all_preds_done = False
                             break
 
                     if all_preds_done:
                         ready_queue.append(inst)
 
-            # Check deadline misses
+            # Check deadline misses (t > deadline, not >=)
             for inst in self.task_instances:
-                if inst.remaining_time > 0 and t >= inst.deadline:
+                if inst.remaining_time > 0 and t > inst.deadline:
                     if not any(dm.details.get('instance') == inst.instance_number
                               for dm in self.deadline_misses if dm.task_id == inst.task_id):
                         self.deadline_misses.append(ScheduleEvent(

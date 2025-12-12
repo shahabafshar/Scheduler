@@ -207,11 +207,11 @@ class PriorityCeilingProtocol:
 class PriorityCeilingEmulation:
     """
     Priority Ceiling Emulation.
-    
+
     Similar to PCP but immediately raises a task's priority to the resource's
     ceiling when it enters a critical section, rather than checking on entry.
     """
-    
+
     def __init__(self, tasks: List[PeriodicTask], resources: List[ResourceConstraint]):
         """Initialize Priority Ceiling Emulation."""
         self.tasks = tasks
@@ -219,7 +219,8 @@ class PriorityCeilingEmulation:
         self.task_priorities = {t.id: t.priority for t in tasks}
         self.base_priorities = {t.id: t.priority for t in tasks}
         self.resource_holders = {}  # resource_id -> task_id
-        
+        self.task_held_resources = {t.id: set() for t in tasks}  # task_id -> {resource_ids}
+
         # Calculate priority ceiling for each resource
         for resource in self.resources.values():
             if resource.tasks:
@@ -228,59 +229,81 @@ class PriorityCeilingEmulation:
                     for tid in resource.tasks
                 )
                 resource.priority_ceiling = max_priority
-    
+
     def request_resource(self, task_id: str, resource_id: str) -> bool:
         """
         Request a resource with immediate priority raise.
-        
+
         Args:
             task_id: Task requesting resource
             resource_id: Resource being requested
-            
+
         Returns:
             True if access granted, False otherwise
         """
         if resource_id not in self.resources:
             return False
-        
+
         resource = self.resources[resource_id]
-        
+
         # Try to lock
         success = resource.lock(task_id)
-        
+
         if success:
             self.resource_holders[resource_id] = task_id
-            
-            # Immediately raise priority to ceiling
-            self.task_priorities[task_id] = resource.priority_ceiling
+            self.task_held_resources.setdefault(task_id, set()).add(resource_id)
+
+            # Raise priority to max ceiling of all held resources
+            new_priority = self._get_max_ceiling_of_held_resources(task_id)
+            self.task_priorities[task_id] = new_priority
             task_obj = next((t for t in self.tasks if t.id == task_id), None)
             if task_obj:
-                task_obj.priority = resource.priority_ceiling
-        
+                task_obj.priority = new_priority
+
         return success
-    
+
+    def _get_max_ceiling_of_held_resources(self, task_id: str) -> int:
+        """Get the maximum priority ceiling among all resources held by a task."""
+        held = self.task_held_resources.get(task_id, set())
+        if not held:
+            return self.base_priorities.get(task_id, 0)
+
+        max_ceiling = self.base_priorities.get(task_id, 0)
+        for res_id in held:
+            if res_id in self.resources:
+                resource = self.resources[res_id]
+                max_ceiling = max(max_ceiling, resource.priority_ceiling)
+
+        return max_ceiling
+
     def release_resource(self, task_id: str, resource_id: str) -> None:
         """
-        Release a resource and restore original priority.
-        
+        Release a resource and restore priority appropriately.
+
+        If task still holds other resources, set priority to max ceiling of those.
+        Otherwise, restore to base priority.
+
         Args:
             task_id: Task releasing resource
             resource_id: Resource being released
         """
         if resource_id not in self.resources:
             return
-        
+
         resource = self.resources[resource_id]
         resource.unlock(task_id)
-        
+
         if resource_id in self.resource_holders:
             del self.resource_holders[resource_id]
-        
-        # Restore original priority
-        base_priority = self.base_priorities.get(task_id)
-        if base_priority is not None:
-            self.task_priorities[task_id] = base_priority
-            task_obj = next((t for t in self.tasks if t.id == task_id), None)
-            if task_obj:
-                task_obj.priority = base_priority
+
+        # Remove from task's held resources
+        if task_id in self.task_held_resources:
+            self.task_held_resources[task_id].discard(resource_id)
+
+        # Restore to max ceiling of still-held resources (or base priority if none)
+        new_priority = self._get_max_ceiling_of_held_resources(task_id)
+        self.task_priorities[task_id] = new_priority
+        task_obj = next((t for t in self.tasks if t.id == task_id), None)
+        if task_obj:
+            task_obj.priority = new_priority
 
