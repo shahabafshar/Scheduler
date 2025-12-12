@@ -61,7 +61,7 @@ OVERLOAD_EXAMPLE = [
     PeriodicTask(id="T2", computation_time=4.0, period=5.0, deadline=5.0)
 ]
 
-# EDF+HVDF Example (Exam Question): T1=(C=3,D=8,V=3), T2=(C=1,D=4,V=1), T3=(C=1,D=4,V=2), T4=(C=2,D=6,V=3)
+# EDF+HVDF Example: T1=(C=3,D=8,V=3), T2=(C=1,D=4,V=1), T3=(C=1,D=4,V=2), T4=(C=2,D=6,V=3)
 EDF_HVDF_EXAMPLE = [
     AperiodicTask(id="T1", arrival_time=0, computation_time=3, deadline=8, value=3, preemptive=False),
     AperiodicTask(id="T2", arrival_time=0, computation_time=1, deadline=4, value=1, preemptive=False),
@@ -312,7 +312,7 @@ PRESET_CATALOG = {
         "description": "Aperiodic tasks execute only during CPU idle time (worst-case baseline)"
     },
     "server_capacity_demo": {
-        "name": "⭐ Server Capacity Demo",
+        "name": "Server Capacity Demo",
         "category": "Server-Based (Combined)",
         "algorithm": "Polling Server",
         "tasks": SERVER_CAPACITY_DEMO,
@@ -365,12 +365,12 @@ PRESET_CATALOG = {
     },
 
     # ===== APERIODIC SCHEDULING =====
-    "aperiodic_hvdf_exam": {
-        "name": "Exam: Value Maximization",
+    "aperiodic_hvdf_value": {
+        "name": "Value Maximization",
         "category": "Aperiodic Scheduling",
         "algorithm": "EDF+HVDF (Value-Based)",
         "tasks": EDF_HVDF_EXAMPLE,
-        "description": "Classic exam problem, optimal value = 9",
+        "description": "Value-based scheduling example, optimal value = 9",
         "expected_value": 9
     },
     "aperiodic_staggered": {
@@ -411,7 +411,7 @@ PRESETS = {
     "[Overload] Deadline Miss Scenario (U>100%)": OVERLOAD_EXAMPLE,
     "[Overload] Gradual Overload": OVERLOAD_GRADUAL,
     # Aperiodic Scheduling
-    "[Aperiodic|HVDF] Exam: Value Maximization (V=9)": EDF_HVDF_EXAMPLE,
+    "[Aperiodic|HVDF] Value Maximization (V=9)": EDF_HVDF_EXAMPLE,
     "[Aperiodic|HVDF] Staggered Arrivals": APERIODIC_STAGGERED,
     "[Aperiodic|HVDF] Burst Arrivals (t=0)": APERIODIC_BURST,
 }

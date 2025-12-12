@@ -1,0 +1,44 @@
+\documentclass[conference,twocolumn]{IEEEtran}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+
+% Code listing style
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  breaklines=true,
+  frame=single,
+  backgroundcolor=\color{gray!10},
+  keywordstyle=\color{blue},
+  commentstyle=\color{green!50!black},
+  stringstyle=\color{red!50!black}
+}
+
+% Tight list spacing
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+$if(highlighting-macros)$
+$highlighting-macros$
+$endif$
+
+\begin{document}
+
+\title{$title$}
+\author{$author$}
+
+\maketitle
+
+$if(abstract)$
+\begin{abstract}
+$abstract$
+\end{abstract}
+$endif$
+
+$body$
+
+\end{document}
