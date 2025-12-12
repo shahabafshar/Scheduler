@@ -130,8 +130,8 @@ class SchedulerBase(ABC):
             ready_queue = [inst for inst in self.task_instances 
                           if inst.remaining_time > 0 and t >= inst.arrival_time and t < inst.deadline]
             
-            # Sort by priority
-            ready_queue.sort(key=lambda x: self.get_task_priority(x.task_id), reverse=True)
+            # Sort by priority (use task_id as tie-breaker for deterministic results)
+            ready_queue.sort(key=lambda x: (-self.get_task_priority(x.task_id), x.task_id))
             
             # Check deadline misses
             for inst in self.task_instances:

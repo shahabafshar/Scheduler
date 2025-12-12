@@ -69,18 +69,26 @@ def create_gantt_chart(result: ScheduleResult, max_time: Optional[int] = None) -
         '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
         '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'
     ]
-    
+
     fig = go.Figure()
-    
+
+    # Track which tasks have already been added to the legend
+    legend_shown = set()
+
     for idx, task_id in enumerate(task_ids):
         color = color_palette[idx % len(color_palette)]
         colors[task_id] = color
-        
+
         intervals = task_intervals[task_id]
-        
+
         # Create a bar for each execution interval
-        for start, end in intervals:
+        for interval_idx, (start, end) in enumerate(intervals):
             duration = end - start
+            # Show legend only for the first interval of each task
+            show_in_legend = task_id not in legend_shown
+            if show_in_legend:
+                legend_shown.add(task_id)
+
             fig.add_trace(go.Bar(
                 y=[task_id],
                 x=[duration],
@@ -88,7 +96,8 @@ def create_gantt_chart(result: ScheduleResult, max_time: Optional[int] = None) -
                 base=[start],
                 marker_color=color,
                 name=task_id,
-                showlegend=idx == 0,  # Only show legend once per task
+                showlegend=show_in_legend,
+                legendgroup=task_id,  # Group legend entries by task
                 customdata=[[f"Start: {start}<br>End: {end}<br>Duration: {duration}"]],
                 hovertemplate='%{customdata[0]}<extra></extra>'
             ))

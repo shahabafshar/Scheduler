@@ -81,6 +81,7 @@ class EDFHVDFPeriodicScheduler(SchedulerBase):
         self.total_value_accumulated = 0.0
         self.current_time = 0.0
         self.running_task: Optional[TaskInstance] = None
+        busy_time = 0  # Track actual CPU busy time
         
         # Track which tasks are preemptive
         task_preemptive_map = {task.id: task.preemptive for task in self.tasks}
@@ -141,14 +142,15 @@ class EDFHVDFPeriodicScheduler(SchedulerBase):
                 if self.running_task.remaining_time > 0:
                     # Continue non-preemptive task
                     self.running_task.remaining_time -= 1.0
-                    
+                    busy_time += 1
+
                     if self.running_task.remaining_time <= 0:
                         # Task completed
                         self.running_task.completion_time = time + 1.0
                         self._handle_completion(self.running_task, time + 1.0)
                         self.running_task = None
                         running_task_preemptive = True
-                    
+
                     continue  # Skip rest of loop
             
             # Get next task
@@ -190,7 +192,8 @@ class EDFHVDFPeriodicScheduler(SchedulerBase):
             # Execute current task
             if self.running_task is not None:
                 self.running_task.remaining_time -= 1.0
-                
+                busy_time += 1
+
                 # Check completion
                 if self.running_task.remaining_time <= 0:
                     self.running_task.completion_time = time + 1.0
@@ -212,12 +215,9 @@ class EDFHVDFPeriodicScheduler(SchedulerBase):
         
         # Calculate metrics
         total_context_switches = len([evt for evt in self.timeline if evt.event_type in ['start', 'preempt']])
-        
-        # CPU utilization
-        busy_time = sum(task.computation_time for task in self.tasks) * len([
-            inst for inst in self.completed_instances
-        ]) / len(self.tasks) if self.tasks else 0
-        cpu_utilization = (busy_time / self.duration * 100.0) if self.duration > 0 else 0.0
+
+        # CPU utilization (based on actual busy time tracked during simulation)
+        cpu_utilization = (busy_time / self.duration) if self.duration > 0 else 0.0
         
         # Create result
         result = ScheduleResult(

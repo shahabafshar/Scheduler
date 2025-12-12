@@ -154,7 +154,7 @@ class FCEDFScheduler(SchedulerBase):
             # Update ready queue (EDF)
             ready_queue = [inst for inst in self.task_instances 
                           if inst.remaining_time > 0 and t >= inst.arrival_time and t < inst.deadline]
-            ready_queue.sort(key=lambda x: x.deadline)
+            ready_queue.sort(key=lambda x: (x.deadline, x.task_id))
             
             # Check deadline misses
             for inst in self.task_instances:

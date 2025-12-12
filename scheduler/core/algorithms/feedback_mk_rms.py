@@ -76,8 +76,8 @@ class FeedbackMkFirmScheduler(SchedulerBase):
         if not ready_queue:
             return None
         
-        # Sort by priority (already sorted by assign_priorities)
-        ready_queue.sort(key=lambda x: self.get_task_priority(x.task_id), reverse=True)
+        # Sort by priority (use task_id as tie-breaker for deterministic results)
+        ready_queue.sort(key=lambda x: (-self.get_task_priority(x.task_id), x.task_id))
         return ready_queue[0]
     
     def simulate(self) -> ScheduleResult:
@@ -125,7 +125,7 @@ class FeedbackMkFirmScheduler(SchedulerBase):
             # Update ready queue
             ready_queue = [inst for inst in self.task_instances 
                           if inst.remaining_time > 0 and t >= inst.arrival_time and t < inst.deadline]
-            ready_queue.sort(key=lambda x: self.get_task_priority(x.task_id), reverse=True)
+            ready_queue.sort(key=lambda x: (-self.get_task_priority(x.task_id), x.task_id))
             
             # Check deadline misses
             for inst in self.task_instances:
@@ -175,6 +175,14 @@ class FeedbackMkFirmScheduler(SchedulerBase):
         
         self.timeline.sort(key=lambda e: e.time)
         
+        # Store diagnostic data in scheduler for later access
+        self.diagnostic_details = {
+            'current_m_values': self.current_m_values,
+            'dfr_history': self.dfr_history,
+            'mqr_history': self.mqr_history,
+            'task_history': self.task_history
+        }
+
         return ScheduleResult(
             algorithm="Feedback (m,k)-RMS",
             tasks=self.tasks,
@@ -182,13 +190,7 @@ class FeedbackMkFirmScheduler(SchedulerBase):
             deadline_misses=self.deadline_misses,
             total_context_switches=sum(1 for e in self.timeline if e.event_type in ['start', 'preempt']),
             cpu_utilization=sum(1 for e in self.timeline if e.task_id and e.event_type == 'start') / self.duration,
-            response_times={},
-            details={
-                'current_m_values': self.current_m_values,
-                'dfr_history': self.dfr_history,
-                'mqr_history': self.mqr_history,
-                'task_history': self.task_history
-            }
+            response_times={}
         )
     
     def _calculate_dynamic_failure_rate(self, task_id: str) -> float:

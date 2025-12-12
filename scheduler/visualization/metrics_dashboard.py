@@ -9,45 +9,31 @@ from scheduler.core.task import ScheduleResult
 
 def create_metrics_dashboard(result: ScheduleResult) -> go.Figure:
     """
-    Create a comprehensive metrics dashboard.
-    
+    Create a compact metrics dashboard.
+
     Shows:
     1. CPU utilization over time
-    2. Task execution timeline
-    3. Ready queue length
-    4. Response time by task
+    2. Utilization by task (pie chart)
     """
     fig = make_subplots(
-        rows=2, cols=2,
+        rows=1, cols=2,
         subplot_titles=(
             'CPU Utilization Over Time',
-            'Task Execution Timeline',
-            'Context Switches',
             'Utilization by Task'
         ),
-        specs=[[{"type": "scatter"}, {"type": "bar"}],
-               [{"type": "scatter"}, {"type": "pie"}]]
+        specs=[[{"type": "scatter"}, {"type": "pie"}]]
     )
-    
-    events_df = pd.DataFrame([
-        {
-            'time': e.time,
-            'task': e.task_id or 'IDLE',
-            'event_type': e.event_type
-        }
-        for e in result.events
-    ])
-    
+
     # 1. CPU Utilization Over Time
     if len(result.events) > 0:
         max_time = max(e.time for e in result.events)
         timeline = list(range(int(max_time) + 1))
         utilization = []
-        
+
         for t in timeline:
             busy_count = sum(1 for e in result.events if e.time == t and e.event_type == 'complete')
             utilization.append(busy_count)
-        
+
         fig.add_trace(
             go.Scatter(
                 x=timeline,
@@ -59,38 +45,13 @@ def create_metrics_dashboard(result: ScheduleResult) -> go.Figure:
             ),
             row=1, col=1
         )
-    
-    # 2. Event Distribution
-    event_types = events_df['event_type'].value_counts()
-    fig.add_trace(
-        go.Bar(
-            x=event_types.index,
-            y=event_types.values,
-            name='Event Count',
-            marker_color='blue'
-        ),
-        row=1, col=2
-    )
-    
-    # 3. Context Switches
-    if result.total_context_switches > 0:
-        fig.add_trace(
-            go.Scatter(
-                x=['Context Switches'],
-                y=[result.total_context_switches],
-                mode='markers',
-                name='Switches',
-                marker=dict(size=[result.total_context_switches * 2], color='orange')
-            ),
-            row=2, col=1
-        )
-    
-    # 4. Utilization by Task
+
+    # 2. Utilization by Task
     task_utilization = {}
     for task in result.tasks:
         exec_time = sum(1 for e in result.events if e.task_id == task.id and e.event_type == 'complete')
         task_utilization[task.id] = exec_time
-    
+
     if task_utilization:
         fig.add_trace(
             go.Pie(
@@ -98,15 +59,15 @@ def create_metrics_dashboard(result: ScheduleResult) -> go.Figure:
                 values=list(task_utilization.values()),
                 name='Task Utilization'
             ),
-            row=2, col=2
+            row=1, col=2
         )
-    
+
     fig.update_layout(
-        height=800,
-        title_text="Real-Time Scheduling Metrics Dashboard",
+        height=400,
+        title_text="Scheduling Metrics",
         showlegend=True
     )
-    
+
     return fig
 
 

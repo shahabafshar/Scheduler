@@ -142,6 +142,9 @@ cython_debug/
 .vscode/
 *.code-workspace
 
+# Claude IDE
+.claude/
+
 # Sublime Text
 *.sublime-project
 *.sublime-workspace
@@ -207,4 +210,7 @@ results/
 *.db
 *.sqlite
 *.sqlite3
+
+
+
 
