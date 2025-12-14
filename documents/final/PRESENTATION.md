@@ -1,17 +1,3 @@
-# Real-Time Scheduling Simulator
-## Server-Based Algorithms for Mixed Periodic-Aperiodic Workloads
-
-**Shahab Afshar**
-
-*CPR E 458/558: Real-Time Systems, Fall 2024*
-
-*Department of Electrical and Computer Engineering*
-*Iowa State University*
-
-*Instructor: Dr. G. Manimaran*
-
----
-
 # Slide 1: Title
 
 ## Real-Time Scheduling Simulator
@@ -25,6 +11,12 @@ Fall 2024
 Department of Electrical and Computer Engineering
 Iowa State University
 
+<!-- SPEAKER NOTES:
+- Introduce yourself and the project title
+- Mention this is for CPR E 458/558 Real-Time Systems course
+- Estimated time: 30 seconds
+-->
+
 ---
 
 # Slide 2: Problem Statement
@@ -32,6 +24,15 @@ Iowa State University
 ## The Challenge
 
 **Real-time systems must satisfy timing constraints** in addition to functional correctness.
+
+### Real-World Example: Automotive ECU
+
+An engine control unit must handle:
+
+- **Periodic tasks:** Engine control (10ms), ABS monitoring (5ms), fuel injection (20ms)
+- **Aperiodic tasks:** Driver button presses, diagnostic requests, error handling
+
+*Challenge: How to guarantee both periodic AND aperiodic tasks meet their deadlines?*
 
 ### The Gap
 
@@ -50,6 +51,14 @@ Iowa State University
 
 ![System Model](figures/system_diagram.png)
 
+<!-- SPEAKER NOTES:
+- Start with automotive example - relatable to audience
+- Emphasize the GAP: formulas don't show behavior over time
+- Key point: Engineers need to SEE what happens before committing
+- Introduce the three research questions - these guide the entire project
+- Estimated time: 2 minutes
+-->
+
 ---
 
 # Slide 3: Solution Overview (1/2)
@@ -67,7 +76,18 @@ Iowa State University
 
 ![Server Algorithm Comparison](figures/server_comparison.jpg)
 
-*Figure: Visual comparison of server capacity management strategies*
+Sources: Sprunt et al. (1989), Lehoczky et al. (1987)
+
+<!-- SPEAKER NOTES:
+- Walk through each server type briefly
+- KEY DIFFERENTIATOR: What happens when server has priority but no aperiodic work?
+  - Polling: loses capacity (wasteful)
+  - Deferrable: keeps it (but affects periodic schedulability)
+  - Sporadic: schedules replenishment (best of both)
+  - Background: only runs when nothing else to do
+- Point to the figure showing capacity behavior
+- Estimated time: 2 minutes
+-->
 
 ---
 
@@ -85,11 +105,19 @@ Iowa State University
 
 ### Supported Algorithms
 
-- **Basic:** RMS, EDF, DMS, LLF
+- **Basic:** RMS, EDF, DMS, LLF — Liu & Layland (1973)
 - **Server-Based:** Polling, Deferrable, Sporadic, Background
 - **Advanced:** Precedence-constrained, Overload handling, Value-based (HVDF)
 
 ![Full Application Layout](../../user_guide/screenshots/part1-getting-started/part1-02-full-layout.png)
+
+<!-- SPEAKER NOTES:
+- Show the screenshot - this is what users interact with
+- Highlight: configuration on left, results on right
+- Mention 21 presets for quick experimentation
+- 13+ algorithms total - focus is on server-based for this project
+- Estimated time: 1.5 minutes
+-->
 
 ---
 
@@ -109,6 +137,15 @@ Iowa State University
 | Web UI | Streamlit | Interactive dashboard |
 | Visualization | Plotly | Gantt charts, metrics |
 | Data Handling | Pandas | Task tables, export |
+
+<!-- SPEAKER NOTES:
+- Three-layer architecture ensures clean separation
+- Core layer: pure Python, no UI dependencies - easy to test
+- Visualization layer: Plotly for interactive charts
+- UI layer: Streamlit for rapid web development
+- This architecture makes it easy to add new algorithms
+- Estimated time: 1.5 minutes
+-->
 
 ---
 
@@ -139,6 +176,15 @@ class ServerSchedulerBase(SchedulerBase):
 | Deferrable | `return False` (capacity preserved) |
 | Sporadic | Schedule replenishment at `t + Pₛ` |
 
+<!-- SPEAKER NOTES:
+- Template Method pattern is KEY architectural decision
+- Base class handles: time advancement, ready queue, preemption
+- Subclasses only override: priority assignment, task selection
+- Show the code snippet: just 2 methods to implement
+- Table shows HOW servers differ in just one line of code each
+- Estimated time: 2 minutes
+-->
+
 ---
 
 # Slide 7: Testing & Evaluation Results (1/2)
@@ -159,6 +205,15 @@ class ServerSchedulerBase(SchedulerBase):
 ![Polling Server Gantt](../../user_guide/screenshots/part3-server-algorithms/part3-polling-02-gantt-chart.png)
 
 *Polling Server: Gantt chart shows task execution and server events*
+
+<!-- SPEAKER NOTES:
+- RQ1 answer: YES, we can faithfully implement server algorithms
+- How verified? Look for expected EVENTS in the timeline
+- Point to Gantt chart: show where capacity_lost would appear
+- Each server type produces characteristic event patterns
+- This is BEHAVIORAL verification, not just output checking
+- Estimated time: 1.5 minutes
+-->
 
 ---
 
@@ -187,6 +242,15 @@ class ServerSchedulerBase(SchedulerBase):
 
 ![Sporadic Server Gantt with Events](../../user_guide/screenshots/part3-server-algorithms/part3-sporadic-01-gantt.png)
 
+<!-- SPEAKER NOTES:
+- RQ3: Parameter exploration WORKS - table shows clear trend
+- Doubling capacity (2→4→8) dramatically reduces response time
+- This is insight you can't get from formulas alone
+- RQ2: Point to screenshot features - colors, triangles, labels
+- Users can VISUALLY compare algorithms side by side
+- Estimated time: 2 minutes
+-->
+
 ---
 
 # Slide 9: Conclusions
@@ -210,9 +274,45 @@ Varying Cₛ from 2→8 shows response time reduction (17→8 time units), enabl
 4. **Parameter exploration** via sliders
 5. **Schedulability analysis** (RMS, EDF, DMS)
 
+<!-- SPEAKER NOTES:
+- Summarize: All three RQs answered positively
+- Emphasize the 5 key contributions
+- Open-source: available for others to use and extend
+- 21 presets from actual course materials - verified correctness
+- Transition: "But no project is perfect..."
+- Estimated time: 1.5 minutes
+-->
+
 ---
 
-# Slide 10: Learning Achieved
+# Slide 10: Limitations & Future Work
+
+## Current Limitations
+
+- **Single-processor only:** Multi-core scheduling not yet supported
+- **No resource contention:** Priority Inheritance/Ceiling protocols implemented but not integrated
+- **Limited validation:** User study needed for formal RQ2 assessment
+- **Simulation scope:** Does not model I/O delays, cache effects, or interrupt latency
+
+## Future Directions
+
+- **Multi-core extension:** Partitioned and global scheduling algorithms
+- **Resource protocol integration:** PIP/PCP for shared resource scenarios
+- **RTOS trace import:** Compare simulation with FreeRTOS/Zephyr execution traces
+- **Formal verification:** Model checking for schedulability guarantees
+
+<!-- SPEAKER NOTES:
+- Be honest about limitations - shows academic rigor
+- Single-processor is biggest limitation for modern systems
+- Resource protocols ARE implemented, just not integrated yet
+- Future work: multi-core is natural next step
+- RTOS trace import would enable real-world validation
+- Estimated time: 1 minute
+-->
+
+---
+
+# Slide 11: Learning Achieved
 
 ## Technical Skills Developed
 
@@ -237,6 +337,16 @@ Varying Cₛ from 2→8 shows response time reduction (17→8 time units), enabl
 2. **Visualization is essential** for understanding scheduling dynamics
 3. **Parameter exploration** enables informed design decisions
 4. **Modular architecture** simplifies adding new algorithms
+
+<!-- SPEAKER NOTES:
+- Personal reflection slide - what YOU learned
+- Three categories: RT concepts, software engineering, tools
+- Highlight Template Method - this is a transferable skill
+- Four lessons learned - these apply beyond this project
+- End with: "Simulation reveals what formulas cannot show"
+- Invite questions
+- Estimated time: 1.5 minutes
+-->
 
 ---
 
@@ -268,8 +378,9 @@ Varying Cₛ from 2→8 shows response time reduction (17→8 time units), enabl
 
 ## UI Overview
 
-### Full Application Layout
-![Full Layout](../../user_guide/screenshots/part1-getting-started/part1-02-full-layout.png)
+### Server Configuration Panel
+
+![Server Configuration](../../user_guide/screenshots/part3-server-algorithms/part3-server-02-server-configuration.png)
 
 ### Preset System
 ![Preset Dialog](../../user_guide/screenshots/part8-presets/part8-01-preset-dialog.png)
