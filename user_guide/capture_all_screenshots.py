@@ -1097,14 +1097,18 @@ async def capture_part7_resource_sharing(page: Page):
     await ensure_no_modals(page)
     await take_screenshot(page, "part7-resource-01-resources-tab.png", "part7-advanced")
     
-    # Enable resource sharing
-    checkbox = page.locator('input[type="checkbox"]').filter(lambda e: "Enable Resource Sharing" in e.get_attribute('aria-label') or False)
-    if await checkbox.count() == 0:
-        # Try different selector
-        checkbox = page.locator('label:has-text("Enable Resource Sharing")').locator('..').locator('input[type="checkbox"]')
-    if await checkbox.count() > 0:
-        await checkbox.click()
-        await wait_for_stable(page, 1000)
+    # Enable resource sharing - find checkbox near the label
+    checkbox_label = page.locator('text=Enable Resource Sharing')
+    if await checkbox_label.count() > 0:
+        # Find the checkbox in the same container
+        container = checkbox_label.locator('..').locator('..')
+        checkbox = container.locator('input[type="checkbox"]')
+        if await checkbox.count() == 0:
+            # Try different container level
+            checkbox = checkbox_label.locator('..').locator('input[type="checkbox"]')
+        if await checkbox.count() > 0:
+            await checkbox.click()
+            await wait_for_stable(page, 1000)
     
     await ensure_no_modals(page)
     await take_screenshot(page, "part7-resource-02-enable-resource-sharing-checked.png", "part7-advanced")
@@ -1125,21 +1129,50 @@ async def capture_part7_resource_sharing(page: Page):
     await select_results_tab(page, "Analysis")
     await take_screenshot(page, "part7-resource-07-analysis-blocking-time.png", "part7-advanced")
     
-    # Switch to PCP protocol
-    protocol_select = page.locator('[aria-label*="Protocol"]').first
-    await protocol_select.click()
-    await wait_for_stable(page, 500)
-    options = page.locator('[role="option"]')
-    count = await options.count()
-    for i in range(count):
-        text = await options.nth(i).text_content()
-        if text and "Priority Ceiling" in text:
-            await options.nth(i).click()
-            await wait_for_network_idle(page, 3000)
-            await wait_for_stable(page, 1000)
-            break
+    # Switch to PCP protocol - need to go back to Resources tab
+    await expand_advanced_options(page)
+    await select_advanced_tab(page, "Resources")
+    await ensure_no_modals(page)
+    await wait_for_stable(page, 1000)
     
-    await take_screenshot(page, "part7-resource-08-protocol-selection-pcp.png", "part7-advanced")
+    # Find protocol selector
+    protocol_selectors = [
+        '[aria-label*="Protocol"]',
+        'selectbox:has-text("Protocol")',
+    ]
+    
+    protocol_select = None
+    for selector in protocol_selectors:
+        locators = page.locator(selector)
+        count = await locators.count()
+        if count > 0:
+            # Get the one in Advanced Options (not in main config)
+            for i in range(count):
+                loc = locators.nth(i)
+                # Check if it's in Advanced Options area
+                parent_text = await loc.locator('..').locator('..').locator('..').text_content()
+                if parent_text and 'Advanced Options' in parent_text:
+                    protocol_select = loc
+                    break
+            if protocol_select:
+                break
+    
+    if protocol_select:
+        await protocol_select.click()
+        await wait_for_stable(page, 800)
+        options = page.locator('[role="option"]')
+        count = await options.count()
+        for i in range(count):
+            text = await options.nth(i).text_content()
+            if text and "Priority Ceiling" in text:
+                await options.nth(i).click()
+                await wait_for_network_idle(page, 3000)
+                await wait_for_stable(page, 1000)
+                break
+        
+        await take_screenshot(page, "part7-resource-08-protocol-selection-pcp.png", "part7-advanced")
+    else:
+        print("    [WARNING] Could not find Protocol selector for PCP screenshot")
 
 
 async def main():
