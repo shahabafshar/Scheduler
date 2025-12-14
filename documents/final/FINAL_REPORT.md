@@ -337,8 +337,18 @@ The Streamlit-based UI provides:
 3. **Server Configuration**: Capacity (Cₛ) and Period (Pₛ) sliders
 4. **Preset Library**: 21 curated test scenarios from literature examples
 5. **Schedulability Analysis**: Real-time utilization tests with pass/fail indicators
-6. **Interactive Gantt Chart**: Hover for event details, zoom/pan support
-7. **Metrics Dashboard**: CPU utilization, context switches, deadline statistics
+6. **Interactive Gantt Chart**:
+   - Task execution intervals with color-coded bars
+   - Deadline markers (red triangles) showing deadline boundaries
+   - Arrival markers (green circles) indicating task arrival times
+   - Server capacity events (`replenish`, `deferred`, `capacity_lost`)
+   - Blocked intervals with hatched pattern (when resource protocols enabled)
+   - Hover tooltips with detailed event information (task ID, time, remaining computation)
+   - Zoom and pan for exploring long simulations
+   - Download as PNG for documentation
+7. **Metrics Dashboard**: CPU utilization over time, utilization by task (pie chart), event distribution, context switch visualization
+8. **Timeline Step Viewer**: Interactive slider to step through simulation events with explanatory text
+9. **Priority Timeline**: Dynamic priority visualization for EDF/LLF algorithms showing priority changes over time
 
 ---
 
@@ -406,6 +416,15 @@ The following behaviors were verified against the algorithm descriptions in [1-3
 | Background | Worst | Aperiodic task runs only in gaps between periodic tasks |
 
 **Finding:** Interactive visualization clearly shows the behavioral differences between server types (RQ2), and the simulator faithfully implements the capacity management policies (RQ1).
+
+**Gantt Chart Visualization Features Supporting RQ2:**
+
+- Color-coded task bars distinguish periodic tasks from aperiodic tasks and server activity
+- Red triangle markers indicate deadline boundaries, making deadline misses immediately visible
+- Green circle markers show task arrival times for aperiodic tasks
+- Hover tooltips reveal detailed event information (remaining computation time, server capacity)
+- Zoom/pan capabilities allow exploration of specific time intervals
+- Server events (`replenish`, `deferred`, `capacity_lost`) appear as labeled markers on the timeline
 
 ### 5.3.3. Schedulability Analysis Validation
 
