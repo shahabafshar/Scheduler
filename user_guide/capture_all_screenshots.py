@@ -357,8 +357,8 @@ async def select_results_tab(page: Page, tab_name: str):
         await wait_for_stable(page, 1000)
 
 
-async def load_preset(page: Page, preset_name: str):
-    """Load a preset by name."""
+async def load_preset(page: Page, preset_name: str, category: str = None):
+    """Load a preset by name. Optionally specify category to switch to that tab first."""
     await ensure_no_modals(page)
     await wait_for_network_idle(page, 2000)
     
@@ -370,61 +370,198 @@ async def load_preset(page: Page, preset_name: str):
         await wait_for_element_visible(page, '[role="dialog"]', 5000)
         await wait_for_stable(page, 1500)
     
+    # If category is specified, switch to that tab first
+    if category:
+        # Find tabs in the dialog
+        dialog_tabs = page.locator('[role="dialog"] [role="tab"]')
+        tab_count = await dialog_tabs.count()
+        for i in range(tab_count):
+            tab = dialog_tabs.nth(i)
+            text = await tab.text_content()
+            if text and category.lower() in text.lower():
+                await tab.click()
+                await wait_for_stable(page, 1500)
+                break
+    
     # Find the preset card - try multiple strategies
-    # Strategy 1: Find by strong tag with preset name
+    # Strategy 1: Find by strong tag with preset name (exact match)
     preset_cards = page.locator(f'strong:has-text("{preset_name}")')
     card_count = await preset_cards.count()
     
-    # Strategy 2: If not found, try partial match
+    # Strategy 2: If not found, try partial match in all strong tags
+    card = None
     if card_count == 0:
         # Try finding by partial name match
         all_strongs = page.locator('strong')
         strong_count = await all_strongs.count()
         for i in range(strong_count):
             text = await all_strongs.nth(i).text_content()
-            if text and preset_name.lower() in text.lower():
-                preset_cards = page.locator(f'strong').nth(i)
-                card_count = 1
-                break
-    
-    if card_count > 0:
-        # Find the Load button in the same container
-        if card_count == 1:
-            card = preset_cards.first
-        else:
-            # Find the one that matches
-            for i in range(card_count):
-                text = await preset_cards.nth(i).text_content()
-                if text and preset_name.lower() in text.lower():
-                    card = preset_cards.nth(i)
+            if text:
+                text = text.strip()
+                # Filter out non-preset items
+                if text.startswith('Step ') or text == 'Run':
+                    continue
+                if preset_name.lower() in text.lower() or text.lower() in preset_name.lower():
+                    card = all_strongs.nth(i)
+                    print(f"    [DEBUG] Found preset '{text}' matching '{preset_name}'")
                     break
-            else:
-                card = preset_cards.first
+    elif card_count == 1:
+        card = preset_cards.first
+    else:
+        # Multiple matches, find the best one
+        for i in range(card_count):
+            text = await preset_cards.nth(i).text_content()
+            if text and preset_name.lower() in text.lower():
+                card = preset_cards.nth(i)
+                break
+        if not card:
+            card = preset_cards.first
+    
+    if card:
+        print(f"    [DEBUG] Found preset card for '{preset_name}', looking for Load button...")
         
-        # Navigate to the container with the Load button
-        # The structure is usually: strong -> parent -> parent -> Load button
-        container = card.locator('..').locator('..')
-        load_button = container.locator('button:has-text("Load")')
+        # Use JavaScript to find and click the Load button in the same container as the preset card
+        # This is more reliable than navigating DOM with locators
+        clicked = await page.evaluate("""
+            (presetName) => {
+                // Find all strong tags with the preset name
+                const strongTags = document.querySelectorAll('strong');
+                for (let strong of strongTags) {
+                    if (strong.textContent && strong.textContent.includes(presetName)) {
+                        // Find the parent container (column)
+                        let container = strong;
+                        for (let i = 0; i < 5; i++) {
+                            container = container.parentElement;
+                            if (!container) break;
+                            
+                            // Look for Load button in this container
+                            const buttons = container.querySelectorAll('button');
+                            for (let btn of buttons) {
+                                if (btn.textContent && btn.textContent.trim() === 'Load') {
+                                    // Make sure this is NOT a tab button
+                                    const role = btn.getAttribute('role');
+                                    const isTab = role === 'tab' || btn.closest('[role="tablist"]');
+                                    if (!isTab) {
+                                        // Click the strong tag first (as per user feedback)
+                                        strong.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                        strong.click();
+                                        
+                                        // Small delay then click Load
+                                        setTimeout(() => {
+                                            btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                            btn.click();
+                                        }, 300);
+                                        return true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                return false;
+            }
+        """, preset_name)
         
-        if await load_button.count() == 0:
-            # Try different container levels
-            container = card.locator('..').locator('..').locator('..')
-            load_button = container.locator('button:has-text("Load")')
+        if not clicked:
+            # Fallback: try using Playwright locators, but be very specific
+            # Make sure we're NOT clicking tabs - only buttons with text "Load" that are NOT tabs
+            dialog = page.locator('[role="dialog"]')
+            # Find Load buttons that are NOT tabs
+            all_load_buttons = dialog.locator('button:has-text("Load")')
+            button_count = await all_load_buttons.count()
+            
+            # Find the one in the same container as our preset card
+            card_text = await card.text_content()
+            for i in range(button_count):
+                btn = all_load_buttons.nth(i)
+                # Check if button is a tab
+                role = await btn.get_attribute('role')
+                if role == 'tab':
+                    continue
+                
+                # Check if button is near our card
+                # Get button's container and check if it contains our card text
+                btn_container = btn.locator('..').locator('..').locator('..')
+                container_text = await btn_container.text_content()
+                if container_text and preset_name.lower() in container_text.lower():
+                    print(f"    [DEBUG] Found Load button using Playwright fallback")
+                    await card.click()
+                    await wait_for_stable(page, 500)
+                    await btn.click()
+                    clicked = True
+                    break
         
-        if await load_button.count() > 0:
-            # Click the preset card first (as per user feedback)
-            await card.click()
-            await wait_for_stable(page, 500)
-            await load_button.click()
-            # Dialog closes automatically, wait for it to close
-            try:
-                await page.wait_for_selector('[role="dialog"]', state='hidden', timeout=5000)
-            except:
-                pass
-            await wait_for_network_idle(page, 4000)
-            await ensure_no_modals(page)
-            await wait_for_stable(page, 2000)
-            return
+        if not clicked:
+            raise Exception(f"Could not find or click Load button for preset '{preset_name}'")
+        
+        # Wait for dialog to close (it closes automatically after Load)
+        print(f"    [DEBUG] Waiting for dialog to close...")
+        try:
+            await page.wait_for_selector('[role="dialog"]', state='hidden', timeout=8000)
+            print(f"    [DEBUG] Dialog closed")
+        except:
+            print(f"    [WARNING] Dialog did not close within timeout")
+        
+        # Wait for Streamlit to rerun and process the preset
+        # This is critical - Streamlit needs to rerun to apply the preset
+        print(f"    [DEBUG] Waiting for Streamlit rerun...")
+        await wait_for_network_idle(page, 8000)
+        
+        # Wait for the page to update
+        await wait_for_stable(page, 3000)
+        
+        # Verify preset was loaded by checking task count in the task grid
+        print(f"    [DEBUG] Verifying preset was loaded...")
+        await wait_for_stable(page, 2000)
+        
+        # Check task grid - count rows that contain task data
+        task_selectors = [
+            'table tbody tr',
+            '[data-testid*="stDataFrame"] tbody tr',
+            '.stDataFrame tbody tr',
+            '[role="table"] tbody tr',
+            '[role="rowgroup"] [role="row"]'
+        ]
+        
+        row_count = 0
+        for selector in task_selectors:
+            rows = page.locator(selector)
+            count = await rows.count()
+            if count > 0:
+                row_count = count
+                # Filter out header rows
+                if row_count > 0:
+                    first_row_text = await rows.nth(0).text_content()
+                    if first_row_text and ('ID' in first_row_text or 'id' in first_row_text.lower()):
+                        row_count = max(0, count - 1)  # Subtract header row
+                break
+        
+        print(f"    [DEBUG] Found {row_count} task row(s) in grid")
+        
+        # If we still only have 1 task, wait longer and try again
+        if row_count <= 1:
+            print(f"    [WARNING] Only {row_count} task(s) found, waiting longer for preset to load...")
+            await wait_for_network_idle(page, 6000)
+            await wait_for_stable(page, 3000)
+            # Re-check
+            for selector in task_selectors:
+                rows = page.locator(selector)
+                count = await rows.count()
+                if count > 0:
+                    row_count = count
+                    first_row_text = await rows.nth(0).text_content()
+                    if first_row_text and ('ID' in first_row_text or 'id' in first_row_text.lower()):
+                        row_count = max(0, count - 1)
+                    break
+            print(f"    [DEBUG] After additional wait: {row_count} task row(s)")
+        
+        if row_count <= 1:
+            print(f"    [ERROR] Preset may not have loaded correctly - only {row_count} task(s) found")
+            print(f"    [INFO] Expected multiple tasks from preset '{preset_name}'")
+        
+        await ensure_no_modals(page)
+        await wait_for_stable(page, 2000)
+        return
     
     # Debug: print available presets
     all_strongs = page.locator('strong')
@@ -487,18 +624,70 @@ async def select_advanced_tab(page: Page, tab_name: str):
     await ensure_no_modals(page)
     await wait_for_network_idle(page, 2000)
     
-    tabs = page.locator(f'[role="tab"]:has-text("{tab_name}")')
-    if await tabs.count() > 0:
-        tab = tabs.last
+    # Find tabs in Advanced Options - they should be in a tablist within Advanced Options
+    # Advanced Options has its own tablist, separate from the results panel
+    advanced_tablist = page.locator('text=Advanced Options').locator('..').locator('..').locator('[role="tablist"]')
+    
+    # If we can't find it that way, try finding all tablists and get the one in Advanced Options
+    all_tablists = page.locator('[role="tablist"]')
+    tablist_count = await all_tablists.count()
+    
+    target_tab = None
+    for i in range(tablist_count):
+        tablist = all_tablists.nth(i)
+        tabs = tablist.locator(f'[role="tab"]:has-text("{tab_name}")')
+        if await tabs.count() > 0:
+            # Check if this tablist is in Advanced Options area
+            # Advanced Options tablist should be after the "Advanced Options" text
+            tab = tabs.first
+            # Try to verify it's in Advanced Options by checking parent
+            parent_text = await tab.locator('..').locator('..').locator('..').text_content()
+            if parent_text and 'Advanced Options' in parent_text:
+                target_tab = tab
+                break
+            # If we can't verify, use the last matching tab (Advanced Options is usually last)
+            if not target_tab:
+                target_tab = tabs.last
+    
+    if target_tab:
         # Check if already selected
-        is_selected = await tab.get_attribute('aria-selected')
+        is_selected = await target_tab.get_attribute('aria-selected')
         if is_selected == 'true':
             return
         
-        await tab.click()  # Last one is in Advanced Options
+        # Make sure tab is visible before clicking
+        await wait_for_element_visible(page, f'[role="tab"]:has-text("{tab_name}")', 5000)
+        
+        # Use JavaScript to click if Playwright click fails
+        try:
+            await target_tab.click(timeout=5000)
+        except:
+            # Fallback: use JavaScript
+            await page.evaluate(f"""
+                (tabName) => {{
+                    const tabs = document.querySelectorAll('[role="tab"]');
+                    for (let tab of tabs) {{
+                        if (tab.textContent && tab.textContent.includes(tabName)) {{
+                            // Check if it's in Advanced Options
+                            let parent = tab.closest('[role="tablist"]');
+                            if (parent) {{
+                                let container = parent.closest('div');
+                                if (container && container.textContent && container.textContent.includes('Advanced Options')) {{
+                                    tab.click();
+                                    return true;
+                                }}
+                            }}
+                        }}
+                    }}
+                    return false;
+                }}
+            """, tab_name)
+        
         # Wait for tab content to load
         await wait_for_network_idle(page, 2000)
-        await wait_for_stable(page, 800)
+        await wait_for_stable(page, 1000)
+    else:
+        raise Exception(f"Advanced Options tab '{tab_name}' not found")
 
 
 async def take_screenshot(page: Page, filename: str, subdirectory: str = ""):
@@ -561,21 +750,35 @@ async def capture_part2_basic_algorithms(page: Page):
     await ensure_no_modals(page)
     await take_screenshot(page, "part2-rms-01-algorithm-selection.png", "part2-basic-algorithms")
     
+    # Task configuration screenshot
+    await take_screenshot(page, "part2-rms-02-task-configuration.png", "part2-basic-algorithms")
+    
     await run_simulation(page)
+    # Results metrics
+    await take_screenshot(page, "part2-rms-03-results-metrics.png", "part2-basic-algorithms")
+    
     await select_results_tab(page, "Gantt")
     await take_screenshot(page, "part2-rms-04-gantt-chart.png", "part2-basic-algorithms")
     
     await select_results_tab(page, "Metrics")
     await take_screenshot(page, "part2-rms-05-metrics-dashboard.png", "part2-basic-algorithms")
     
+    await select_results_tab(page, "Timeline")
+    await take_screenshot(page, "part2-rms-06-timeline-viewer.png", "part2-basic-algorithms")
+    
     await select_results_tab(page, "Analysis")
     await take_screenshot(page, "part2-rms-07-analysis-tab.png", "part2-basic-algorithms")
+    
+    await select_results_tab(page, "Export")
+    await take_screenshot(page, "part2-rms-08-export-tab.png", "part2-basic-algorithms")
     
     # EDF
     print("  EDF...")
     await select_algorithm(page, "EDF (Earliest Deadline First)")
     await ensure_no_modals(page)
     await take_screenshot(page, "part2-edf-01-algorithm-selection.png", "part2-basic-algorithms")
+    
+    await take_screenshot(page, "part2-edf-02-task-configuration.png", "part2-basic-algorithms")
     
     await run_simulation(page)
     await select_results_tab(page, "Gantt")
@@ -592,6 +795,8 @@ async def capture_part2_basic_algorithms(page: Page):
     await select_algorithm(page, "DMS (Deadline Monotonic)")
     await ensure_no_modals(page)
     await take_screenshot(page, "part2-dms-01-algorithm-selection.png", "part2-basic-algorithms")
+    
+    await take_screenshot(page, "part2-dms-02-task-configuration.png", "part2-basic-algorithms")
     
     await run_simulation(page)
     await select_results_tab(page, "Timeline")
@@ -622,12 +827,40 @@ async def capture_part3_server_algorithms(page: Page):
     await ensure_no_modals(page)
     await take_screenshot(page, "part3-polling-04-algorithm-selection.png", "part3-server-algorithms")
     
+    # Server configuration
+    await take_screenshot(page, "part3-server-02-server-configuration.png", "part3-server-algorithms")
+    
+    # Task grid with periodic and aperiodic
+    await take_screenshot(page, "part3-polling-05-task-grid-with-periodic-aperiodic.png", "part3-server-algorithms")
+    
     await run_simulation(page)
     await select_results_tab(page, "Gantt")
     await take_screenshot(page, "part3-polling-02-gantt-chart.png", "part3-server-algorithms")
     
     await select_results_tab(page, "Analysis")
+    await take_screenshot(page, "part3-polling-03-server-analysis.png", "part3-server-algorithms")
     await take_screenshot(page, "part3-polling-06-response-times-table.png", "part3-server-algorithms")
+    
+    # Deferrable Server
+    print("  Deferrable Server...")
+    await load_preset(page, "Deferrable Server", "Server-Based (Combined)")
+    await run_simulation(page)
+    await select_results_tab(page, "Gantt")
+    await take_screenshot(page, "part3-deferrable-01-gantt.png", "part3-server-algorithms")
+    
+    # Sporadic Server
+    print("  Sporadic Server...")
+    await load_preset(page, "Sporadic Server", "Server-Based (Combined)")
+    await run_simulation(page)
+    await select_results_tab(page, "Gantt")
+    await take_screenshot(page, "part3-sporadic-01-gantt.png", "part3-server-algorithms")
+    
+    # Background Scheduler
+    print("  Background Scheduler...")
+    await load_preset(page, "Background Scheduler (Baseline)", "Server-Based (Combined)")
+    await run_simulation(page)
+    await select_results_tab(page, "Gantt")
+    await take_screenshot(page, "part3-background-01-gantt.png", "part3-server-algorithms")
 
 
 async def capture_part4_precedence(page: Page):
@@ -642,28 +875,126 @@ async def capture_part4_precedence(page: Page):
     
     # Load RMS Chain preset
     await load_preset(page, "Chain Dependencies", "Precedence-Constrained")
+    await ensure_no_modals(page)
+    await take_screenshot(page, "part4-precedence-constrained-02-rms-chain-config.png", "part4-precedence")
+    
+    # Expand Advanced Options and show Precedence tab
+    await expand_advanced_options(page)
+    await select_advanced_tab(page, "Precedence")
+    await take_screenshot(page, "part4-precedence-constrained-03-rms-chain-precedence-tab.png", "part4-precedence")
+    
     await run_simulation(page)
     await select_results_tab(page, "Gantt")
     await take_screenshot(page, "part4-precedence-constrained-04-rms-chain-gantt.png", "part4-precedence")
     
     await select_results_tab(page, "Timeline")
     await take_screenshot(page, "part4-precedence-constrained-05-rms-chain-precedence-graph.png", "part4-precedence")
+    
+    await select_results_tab(page, "Analysis")
+    await take_screenshot(page, "part4-precedence-constrained-06-rms-chain-analysis.png", "part4-precedence")
+    
+    # EDF Fork Pattern
+    print("  EDF Fork Pattern...")
+    await load_preset(page, "Fork Pattern", "Precedence-Constrained")
+    await ensure_no_modals(page)
+    await take_screenshot(page, "part4-precedence-constrained-07-edf-fork-config.png", "part4-precedence")
+    
+    await run_simulation(page)
+    await select_results_tab(page, "Gantt")
+    await take_screenshot(page, "part4-precedence-constrained-08-edf-fork-gantt.png", "part4-precedence")
+    
+    await select_results_tab(page, "Timeline")
+    await take_screenshot(page, "part4-precedence-constrained-09-edf-fork-precedence-graph.png", "part4-precedence")
+    
+    await select_results_tab(page, "Analysis")
+    await take_screenshot(page, "part4-precedence-constrained-11-edf-fork-analysis.png", "part4-precedence")
+    
+    # DMS Diamond Pattern
+    print("  DMS Diamond Pattern...")
+    await load_preset(page, "Diamond Pattern", "Precedence-Constrained")
+    await ensure_no_modals(page)
+    await take_screenshot(page, "part4-precedence-constrained-10-dms-diamond-config.png", "part4-precedence")
+    
+    await expand_advanced_options(page)
+    await select_advanced_tab(page, "Precedence")
+    await take_screenshot(page, "part4-precedence-constrained-11-dms-diamond-precedence-tab.png", "part4-precedence")
+    
+    await run_simulation(page)
+    await select_results_tab(page, "Gantt")
+    await take_screenshot(page, "part4-precedence-constrained-12-dms-diamond-gantt.png", "part4-precedence")
+    
+    await select_results_tab(page, "Timeline")
+    await take_screenshot(page, "part4-precedence-constrained-13-dms-diamond-precedence-graph.png", "part4-precedence")
+    
+    await select_results_tab(page, "Analysis")
+    await take_screenshot(page, "part4-precedence-constrained-14-dms-diamond-analysis.png", "part4-precedence")
 
 
 async def capture_part5_aperiodic(page: Page):
     """Capture Part 5: Aperiodic Scheduling screenshots."""
     print("\n=== Part 5: Aperiodic Scheduling ===")
     
+    # Open preset dialog
+    preset_button = page.locator('button:has-text("Presets")')
+    await preset_button.click()
+    await wait_for_stable(page, 1000)
+    await take_screenshot(page, "part5-aperiodic-01-preset-dialog.png", "part5-aperiodic")
+    
     await select_category(page, "Aperiodic Scheduling")
     
     # EDF+HVDF Value Max
     await load_preset(page, "Value Maximization", "Aperiodic Scheduling")
+    await ensure_no_modals(page)
+    await take_screenshot(page, "part5-aperiodic-02-edf-hvdf-value-max-config.png", "part5-aperiodic")
+    
     await run_simulation(page)
     await select_results_tab(page, "Gantt")
     await take_screenshot(page, "part5-aperiodic-03-edf-hvdf-value-max-gantt.png", "part5-aperiodic")
     
     await select_results_tab(page, "Metrics")
     await take_screenshot(page, "part5-aperiodic-04-edf-hvdf-value-max-metrics.png", "part5-aperiodic")
+    
+    await select_results_tab(page, "Analysis")
+    await take_screenshot(page, "part5-aperiodic-05-edf-hvdf-value-max-analysis.png", "part5-aperiodic")
+    
+    # EDF+HVDF Staggered
+    print("  EDF+HVDF Staggered...")
+    await load_preset(page, "Staggered Arrivals", "Aperiodic Scheduling")
+    await ensure_no_modals(page)
+    await take_screenshot(page, "part5-aperiodic-06-edf-hvdf-staggered-config.png", "part5-aperiodic")
+    
+    await run_simulation(page)
+    await select_results_tab(page, "Gantt")
+    await take_screenshot(page, "part5-aperiodic-07-edf-hvdf-staggered-gantt.png", "part5-aperiodic")
+    
+    await select_results_tab(page, "Analysis")
+    await take_screenshot(page, "part5-aperiodic-08-edf-hvdf-staggered-analysis.png", "part5-aperiodic")
+    
+    # EDF+HVDF Burst
+    print("  EDF+HVDF Burst...")
+    await load_preset(page, "Burst Arrivals", "Aperiodic Scheduling")
+    await ensure_no_modals(page)
+    await take_screenshot(page, "part5-aperiodic-09-edf-hvdf-burst-config.png", "part5-aperiodic")
+    
+    await run_simulation(page)
+    await select_results_tab(page, "Gantt")
+    await take_screenshot(page, "part5-aperiodic-10-edf-hvdf-burst-gantt.png", "part5-aperiodic")
+    
+    await select_results_tab(page, "Analysis")
+    await take_screenshot(page, "part5-aperiodic-11-edf-hvdf-burst-analysis.png", "part5-aperiodic")
+    
+    # HVDF Only
+    print("  HVDF Only...")
+    await select_algorithm(page, "HVDF Only")
+    await ensure_no_modals(page)
+    await take_screenshot(page, "part5-aperiodic-12-hvdf-only-config.png", "part5-aperiodic")
+    
+    await run_simulation(page)
+    await select_results_tab(page, "Gantt")
+    await take_screenshot(page, "part5-aperiodic-13-hvdf-only-gantt.png", "part5-aperiodic")
+    
+    await select_results_tab(page, "Analysis")
+    await take_screenshot(page, "part5-aperiodic-14-hvdf-only-analysis.png", "part5-aperiodic")
 
 
 async def capture_part6_overload(page: Page):
@@ -673,7 +1004,11 @@ async def capture_part6_overload(page: Page):
     await select_category(page, "Overload Handling")
     
     # FC-EDF
+    print("  FC-EDF...")
     await select_algorithm(page, "FC-EDF (Feedback Control)")
+    await ensure_no_modals(page)
+    await take_screenshot(page, "part6-overload-01-fc-edf-config.png", "part6-overload")
+    
     await expand_advanced_options(page)
     await select_advanced_tab(page, "Overload")
     await ensure_no_modals(page)
@@ -685,6 +1020,70 @@ async def capture_part6_overload(page: Page):
     
     await select_results_tab(page, "Metrics")
     await take_screenshot(page, "part6-overload-04-fc-edf-service-level-plot.png", "part6-overload")
+    
+    await select_results_tab(page, "Analysis")
+    await take_screenshot(page, "part6-overload-05-fc-edf-analysis.png", "part6-overload")
+    
+    # Feedback (m,k)-RMS
+    print("  Feedback (m,k)-RMS...")
+    await select_algorithm(page, "Feedback (m,k)-RMS")
+    await ensure_no_modals(page)
+    await take_screenshot(page, "part6-overload-06-mk-rms-config.png", "part6-overload")
+    
+    await expand_advanced_options(page)
+    await select_advanced_tab(page, "Overload")
+    await take_screenshot(page, "part6-overload-07-mk-rms-overload-tab.png", "part6-overload")
+    
+    await take_screenshot(page, "part6-overload-09-mk-rms-task-grid.png", "part6-overload")
+    
+    await run_simulation(page)
+    await select_results_tab(page, "Metrics")
+    await take_screenshot(page, "part6-overload-08-mk-rms-mk-history.png", "part6-overload")
+    
+    await select_results_tab(page, "Gantt")
+    await take_screenshot(page, "part6-overload-10-mk-rms-gantt.png", "part6-overload")
+    
+    # Imprecise Computation
+    print("  Imprecise Computation...")
+    await select_algorithm(page, "Imprecise Computation")
+    await ensure_no_modals(page)
+    await take_screenshot(page, "part6-overload-11-imprecise-algorithm-selection.png", "part6-overload")
+    
+    await take_screenshot(page, "part6-overload-12-imprecise-task-grid.png", "part6-overload")
+    
+    await run_simulation(page)
+    await select_results_tab(page, "Gantt")
+    await take_screenshot(page, "part6-overload-13-imprecise-gantt.png", "part6-overload")
+    
+    # HVDF (Value-Based) - Overload
+    print("  HVDF (Value-Based) - Overload...")
+    await select_algorithm(page, "HVDF (Value-Based)")
+    await ensure_no_modals(page)
+    await take_screenshot(page, "part6-overload-14-hvdf-algorithm-selection.png", "part6-overload")
+    
+    await take_screenshot(page, "part6-overload-15-hvdf-task-grid-with-values.png", "part6-overload")
+    
+    await run_simulation(page)
+    await select_results_tab(page, "Gantt")
+    await take_screenshot(page, "part6-overload-16-hvdf-gantt.png", "part6-overload")
+    
+    await select_results_tab(page, "Analysis")
+    await take_screenshot(page, "part6-overload-17-hvdf-analysis.png", "part6-overload")
+    
+    # (m,k)-Firm Tasks
+    print("  (m,k)-Firm Tasks...")
+    await select_algorithm(page, "(m,k)-Firm Tasks")
+    await ensure_no_modals(page)
+    await take_screenshot(page, "part6-overload-18-mk-firm-algorithm-selection.png", "part6-overload")
+    
+    await take_screenshot(page, "part6-overload-19-mk-firm-task-grid-with-mk-column.png", "part6-overload")
+    
+    await run_simulation(page)
+    await select_results_tab(page, "Metrics")
+    await take_screenshot(page, "part6-overload-20-mk-firm-mk-history-chart.png", "part6-overload")
+    
+    await select_results_tab(page, "Analysis")
+    await take_screenshot(page, "part6-overload-21-mk-firm-analysis.png", "part6-overload")
 
 
 async def capture_part7_resource_sharing(page: Page):
@@ -699,7 +1098,10 @@ async def capture_part7_resource_sharing(page: Page):
     await take_screenshot(page, "part7-resource-01-resources-tab.png", "part7-advanced")
     
     # Enable resource sharing
-    checkbox = page.locator('checkbox:has-text("Enable Resource Sharing")')
+    checkbox = page.locator('input[type="checkbox"]').filter(lambda e: "Enable Resource Sharing" in e.get_attribute('aria-label') or False)
+    if await checkbox.count() == 0:
+        # Try different selector
+        checkbox = page.locator('label:has-text("Enable Resource Sharing")').locator('..').locator('input[type="checkbox"]')
     if await checkbox.count() > 0:
         await checkbox.click()
         await wait_for_stable(page, 1000)
@@ -707,9 +1109,37 @@ async def capture_part7_resource_sharing(page: Page):
     await ensure_no_modals(page)
     await take_screenshot(page, "part7-resource-02-enable-resource-sharing-checked.png", "part7-advanced")
     
+    # Protocol selection PIP
+    await take_screenshot(page, "part7-resource-03-protocol-selection-pip.png", "part7-advanced")
+    
+    # Resource grid
+    await take_screenshot(page, "part7-resource-04-resource-grid.png", "part7-advanced")
+    
+    # Task grid with Resources and CS columns
+    await take_screenshot(page, "part7-resource-05-task-grid-with-resources-cs.png", "part7-advanced")
+    
     await run_simulation(page)
     await select_results_tab(page, "Gantt")
     await take_screenshot(page, "part7-resource-06-gantt-with-blocking.png", "part7-advanced")
+    
+    await select_results_tab(page, "Analysis")
+    await take_screenshot(page, "part7-resource-07-analysis-blocking-time.png", "part7-advanced")
+    
+    # Switch to PCP protocol
+    protocol_select = page.locator('[aria-label*="Protocol"]').first
+    await protocol_select.click()
+    await wait_for_stable(page, 500)
+    options = page.locator('[role="option"]')
+    count = await options.count()
+    for i in range(count):
+        text = await options.nth(i).text_content()
+        if text and "Priority Ceiling" in text:
+            await options.nth(i).click()
+            await wait_for_network_idle(page, 3000)
+            await wait_for_stable(page, 1000)
+            break
+    
+    await take_screenshot(page, "part7-resource-08-protocol-selection-pcp.png", "part7-advanced")
 
 
 async def main():
@@ -855,7 +1285,7 @@ async def main():
                         print(f"{'=' * 70}")
                         
                         # Ask if user wants to continue
-                        if args.continue_on_error:
+                        if hasattr(args, 'continue_on_error') and args.continue_on_error:
                             print(f"[INFO] --continue-on-error flag set, continuing to next part...")
                             continue
                         elif args.start_from or args.part:
