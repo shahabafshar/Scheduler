@@ -13,7 +13,10 @@
 
 This project is developed and maintained by Shahab Afshar.
 
-[![Try Online](https://img.shields.io/badge/Try_Online-Streamlit_Cloud-FF4B4B?style=flat-square&logo=streamlit&logoColor=white)](https://phd-scheduler.streamlit.app)
+> **Try it now — no installation required!**
+>
+> [![Try Online](https://img.shields.io/badge/Launch_App-phd--scheduler.streamlit.app-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://phd-scheduler.streamlit.app)
+
 [![ORCID](https://img.shields.io/badge/ORCID-0009--0000--3682--0471-A6CE39?style=flat-square&logo=ORCID&logoColor=white)](https://orcid.org/0009-0000-3682-0471)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Shahab_Afshar-0077B5?style=flat-square&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/shahabafshar)
 [![GitHub](https://img.shields.io/badge/GitHub-shahabafshar-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/shahabafshar/Scheduler)
