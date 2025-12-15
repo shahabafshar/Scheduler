@@ -47,7 +47,7 @@ An engine control unit must handle:
 |----|----------|
 | **RQ1** | Can a discrete-event simulator faithfully implement server capacity management policies? |
 | **RQ2** | Does interactive visualization help users understand algorithm differences? |
-| **RQ3** | Can parameter exploration (varying Cₛ/Pₛ) reveal optimal configurations? |
+| **RQ3** | Can parameter exploration (varying $C_s$/$P_s$) reveal optimal configurations? |
 
 ![System Model](figures/system_diagram.png)
 
@@ -69,7 +69,7 @@ An engine control unit must handle:
 |-----------|-------------------|---------------|
 | **Polling Server** | Lost if no aperiodic tasks | Moderate |
 | **Deferrable Server** | Preserved until period end | Good |
-| **Sporadic Server** | Dynamic replenishment at t+Pₛ | Best |
+| **Sporadic Server** | Dynamic replenishment at $t+P_s$ | Best |
 | **Background Scheduler** | Runs during idle only | Worst |
 
 ### Key Differentiator: Capacity Management Policy
@@ -99,13 +99,13 @@ Sources: Sprunt et al. (1989), Lehoczky et al. (1987)
 
 1. **Discrete-event simulation** with exact algorithm implementation
 2. **Interactive Gantt charts** showing capacity events
-3. **Parameter exploration** via sliders (Cₛ, Pₛ)
+3. **Parameter exploration** via sliders ($C_s$, $P_s$)
 4. **21 preset configurations** for quick experimentation
 5. **Schedulability analysis** (RMS, EDF, DMS bounds)
 
 ### Supported Algorithms
 
-- **Basic:** RMS, EDF, DMS, LLF — Liu & Layland (1973)
+- **Basic:** RMS, EDF, DMS, LLF -- Liu & Layland (1973)
 - **Server-Based:** Polling, Deferrable, Sporadic, Background
 - **Advanced:** Precedence-constrained, Overload handling, Value-based (HVDF)
 
@@ -174,7 +174,7 @@ class ServerSchedulerBase(SchedulerBase):
 |--------|--------------------------------------------------|
 | Polling | `self.server_remaining = 0` (capacity lost) |
 | Deferrable | `return False` (capacity preserved) |
-| Sporadic | Schedule replenishment at `t + Pₛ` |
+| Sporadic | Schedule replenishment at `t + P_s` |
 
 <!-- SPEAKER NOTES:
 - Template Method pattern is KEY architectural decision
@@ -195,10 +195,10 @@ class ServerSchedulerBase(SchedulerBase):
 
 | Server Type | Expected Behavior | Verified |
 |-------------|-------------------|----------|
-| Polling | `capacity_lost` events when idle | ✓ |
-| Deferrable | `deferred` events preserve capacity | ✓ |
-| Sporadic | `replenish` events at t + Pₛ | ✓ |
-| Background | Runs only during CPU idle | ✓ |
+| Polling | `capacity_lost` events when idle | Yes |
+| Deferrable | `deferred` events preserve capacity | Yes |
+| Sporadic | `replenish` events at $t + P_s$ | Yes |
+| Background | Runs only during CPU idle | Yes |
 
 ### Gantt Chart Evidence
 
@@ -225,13 +225,13 @@ class ServerSchedulerBase(SchedulerBase):
 
 **Workload:** P1(C=1,P=10), P2(C=1,P=15), A1(C=8, arrives t=0)
 
-| Cₛ | Pₛ | A1 Response Time | Replenishments |
-|----|----|-----------------:|---------------:|
+| $C_s$ | $P_s$ | A1 Response Time | Replenishments |
+|-------|-------|------------------:|---------------:|
 | 2 | 5 | 17 | 4 |
 | 4 | 5 | 9 | 2 |
 | 8 | 5 | 8 | 1 |
 
-**Finding:** Larger Cₛ reduces aperiodic response time by reducing replenishment cycles.
+**Finding:** Larger $C_s$ reduces aperiodic response time by reducing replenishment cycles.
 
 ### Visualization Effectiveness (RQ2)
 
@@ -244,7 +244,7 @@ class ServerSchedulerBase(SchedulerBase):
 
 <!-- SPEAKER NOTES:
 - RQ3: Parameter exploration WORKS - table shows clear trend
-- Doubling capacity (2→4→8) dramatically reduces response time
+- Doubling capacity (2->4->8) dramatically reduces response time
 - This is insight you can't get from formulas alone
 - RQ2: Point to screenshot features - colors, triangles, labels
 - Users can VISUALLY compare algorithms side by side
@@ -257,14 +257,17 @@ class ServerSchedulerBase(SchedulerBase):
 
 ## Research Question Answers
 
-### RQ1: Faithful Implementation ✓
+### RQ1: Faithful Implementation -- Yes
+
 Simulator correctly implements capacity management as verified by observing expected events (`capacity_lost`, `deferred`, `replenish`).
 
-### RQ2: Visualization Effectiveness ✓
+### RQ2: Visualization Effectiveness -- Yes
+
 Gantt charts clearly show when capacity is lost vs. preserved. Users can visually compare algorithm behavior.
 
-### RQ3: Parameter Exploration ✓
-Varying Cₛ from 2→8 shows response time reduction (17→8 time units), enabling optimal configuration discovery.
+### RQ3: Parameter Exploration -- Yes
+
+Varying $C_s$ from 2 to 8 shows response time reduction (17 to 8 time units), enabling optimal configuration discovery.
 
 ## Key Contributions
 

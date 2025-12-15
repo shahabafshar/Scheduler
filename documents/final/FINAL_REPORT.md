@@ -18,13 +18,20 @@ This project implements and evaluates server-based scheduling algorithms for mix
 
 # 1. Introduction
 
-Real-time systems must satisfy timing constraints in addition to functional correctness. When designing mixed periodic-aperiodic workloads, engineers face a critical decision: selecting the appropriate server-based scheduling algorithm and configuring its parameters (capacity Cₛ and period Pₛ). While theoretical schedulability analysis provides utilization bounds, it does not reveal the temporal behavior of schedules—when tasks actually execute, how server capacity is consumed and replenished, and how aperiodic response times vary with different configurations.
+Real-time systems must satisfy timing constraints in addition to functional correctness. When designing mixed periodic-aperiodic workloads, engineers face a critical decision: selecting the appropriate server-based scheduling algorithm and configuring its parameters (capacity $C_s$ and period $P_s$). While theoretical schedulability analysis provides utilization bounds, it does not reveal the temporal behavior of schedules--when tasks actually execute, how server capacity is consumed and replenished, and how aperiodic response times vary with different configurations.
+
+**Real-World Example -- Automotive Engine Control Unit (ECU):** Consider an automotive ECU that must handle both predictable and unpredictable workloads:
+
+- **Periodic tasks:** Engine control (10ms period), ABS monitoring (5ms period), fuel injection (20ms period)
+- **Aperiodic tasks:** Driver button presses, diagnostic requests, error handling
+
+The challenge is: *How can we guarantee that BOTH periodic AND aperiodic tasks meet their deadlines?* This is exactly the problem that server-based scheduling algorithms address--dedicating CPU capacity to aperiodic tasks while protecting periodic task deadlines.
 
 **The Gap:** Manual schedule construction is tedious and error-prone. Testing algorithms on actual RTOS hardware requires significant development effort and may not be feasible during early design phases. Engineers need a way to explore algorithm behavior before committing to implementation decisions.
 
 **Practical Use Cases for Simulation:**
 
-1. **Pre-implementation design decisions**: Test different Cₛ/Pₛ combinations to find configurations that meet aperiodic response time requirements without compromising periodic schedulability
+1. **Pre-implementation design decisions**: Test different $C_s$/$P_s$ combinations to find configurations that meet aperiodic response time requirements without compromising periodic schedulability
 2. **What-if analysis**: Explore the impact of adding new tasks, changing computation times, or modifying deadlines before deploying changes to production systems
 3. **Algorithm selection justification**: Generate Gantt chart visualizations and performance metrics to support design documentation and stakeholder reviews
 4. **Workload characterization**: Identify utilization bottlenecks and determine the maximum aperiodic load the system can handle while maintaining deadline guarantees
@@ -46,9 +53,9 @@ The simulator provides interactive visualization, allowing users to observe capa
 
 The system model considers a uniprocessor real-time system with:
 
-- **Periodic tasks**: Tasks τᵢ with parameters (Cᵢ, Pᵢ, Dᵢ) representing computation time, period, and deadline
-- **Aperiodic tasks**: Tasks with parameters (rᵢ, Cᵢ, dᵢ) representing arrival time, computation time, and deadline
-- **Server**: A virtual periodic task with capacity Cₛ and period Pₛ that services aperiodic requests
+- **Periodic tasks**: Tasks $\tau_i$ with parameters $(C_i, P_i, D_i)$ representing computation time, period, and deadline
+- **Aperiodic tasks**: Tasks with parameters $(r_i, C_i, d_i)$ representing arrival time, computation time, and deadline
+- **Server**: A virtual periodic task with capacity $C_s$ and period $P_s$ that services aperiodic requests
 
 This model appears in embedded systems, RTOS environments, and any application requiring deterministic timing guarantees while handling event-driven workloads.
 
@@ -66,7 +73,7 @@ The core problem is: **How do different server capacity management policies affe
 
 - **RQ1:** Can a discrete-event simulator faithfully implement server capacity management policies as described in the literature?
 - **RQ2:** Does interactive visualization help users understand the differences between server algorithms?
-- **RQ3:** Can parameter exploration (varying Cₛ/Pₛ) reveal optimal configurations for specific workloads?
+- **RQ3:** Can parameter exploration (varying $C_s$/$P_s$) reveal optimal configurations for specific workloads?
 
 ## 2.3. Objectives and Scope
 
@@ -86,7 +93,7 @@ The core problem is: **How do different server capacity management policies affe
 
 # 3. Solution Methodology / Approach
 
-Our approach is to build a discrete-event simulator that implements server-based algorithms exactly as described in the seminal literature [1-3], allowing rapid comparison of algorithm behavior under identical workload conditions. The simulator provides interactive Gantt chart visualization so users can directly observe capacity management behavior—when capacity is consumed, when it is replenished, and how these dynamics affect aperiodic response times.
+Our approach is to build a discrete-event simulator that implements server-based algorithms exactly as described in the seminal literature [1-3], allowing rapid comparison of algorithm behavior under identical workload conditions. The simulator provides interactive Gantt chart visualization so users can directly observe capacity management behavior--when capacity is consumed, when it is replenished, and how these dynamics affect aperiodic response times.
 
 ## 3.1. Algorithms / Protocols / Architectures
 
@@ -100,7 +107,7 @@ $$U = \sum_{i=1}^{n} \frac{C_i}{P_i} \leq n(2^{1/n} - 1)$$
 
 Introduced by Lehoczky et al. [2], the Polling Server provides a simple mechanism for aperiodic task handling.
 
-**Mechanism:** The server is a periodic task with capacity Cₛ and period Pₛ. At each server invocation:
+**Mechanism:** The server is a periodic task with capacity $C_s$ and period $P_s$. At each server invocation:
 - If aperiodic tasks are waiting: serve them using available capacity
 - If no aperiodic tasks: **capacity is lost**
 
@@ -121,7 +128,7 @@ def _execute_server_slot(self, t: int) -> bool:
         self.aperiodic_remaining[apt.id] -= work_done
         return True
     else:
-        # NO APERIODIC TASKS → CAPACITY LOST
+        # NO APERIODIC TASKS -> CAPACITY LOST
         self.server_remaining = 0
         return False
 ```
@@ -155,7 +162,7 @@ def _execute_server_slot(self, t: int) -> bool:
 
 Proposed by Sprunt, Sha, and Lehoczky [1], the Sporadic Server provides optimal aperiodic responsiveness while maintaining RMS schedulability guarantees.
 
-**Mechanism:** Capacity consumed at time t is replenished at time t + Pₛ. This dynamic replenishment provides the best aperiodic response times.
+**Mechanism:** Capacity consumed at time t is replenished at time $t + P_s$. This dynamic replenishment provides the best aperiodic response times.
 
 **Characteristics:**
 - Bandwidth-preserving
@@ -190,7 +197,7 @@ The key difference between server algorithms is how they handle unused capacity:
 |-----------|------------------------|-------------------|
 | Polling | Capacity lost | Non-preserving |
 | Deferrable | Capacity kept until period end | Preserving |
-| Sporadic | Capacity kept, replenish at t+Pₛ | Preserving + Dynamic |
+| Sporadic | Capacity kept, replenish at $t+P_s$ | Preserving + Dynamic |
 | Background | N/A (no server concept) | Runs during idle only |
 
 ![Server Algorithm Comparison](figures/server_comparison.jpg)
@@ -208,15 +215,15 @@ Consider the following workload:
 **Aperiodic Tasks:**
 - A1: arrives at t=0, C=8, deadline=50
 
-**Server:** Cₛ=2, Pₛ=5
+**Server:** $C_s$=2, $P_s$=5
 
 **Expected Behavior:**
 
 | Server Type | A1 Completion Time | Explanation |
 |-------------|-------------------|-------------|
-| Polling (Cₛ=2) | ~t=17 | Needs 4 replenishments, capacity lost when A1 not ready |
-| Polling (Cₛ=4) | ~t=9 | Needs 2 replenishments |
-| Polling (Cₛ=8) | ~t=8 | Single replenishment sufficient |
+| Polling ($C_s$=2) | ~t=17 | Needs 4 replenishments, capacity lost when A1 not ready |
+| Polling ($C_s$=4) | ~t=9 | Needs 2 replenishments |
+| Polling ($C_s$=8) | ~t=8 | Single replenishment sufficient |
 | Deferrable | Faster than Polling | Capacity preserved for immediate use |
 | Sporadic | Fastest | Dynamic replenishment optimizes response |
 | Background | Slowest | Must wait for CPU idle time |
@@ -294,6 +301,16 @@ class ServerScheduler(SchedulerBase):
 | Data Handling | Pandas | Task tables, data export |
 | Analysis | NumPy | Numerical computations |
 
+**Layer Responsibilities:**
+
+- **Core Logic (Python 3.10+)**: Pure simulation engine with no UI dependencies. Implements all scheduling algorithms, produces `ScheduleResult` objects, and can be tested independently of the visualization layer.
+
+- **Visualization (Plotly)**: Creates interactive Gantt charts, priority timelines, laxity timelines, and metrics dashboards from `ScheduleResult` data. Completely decoupled from the simulation engine.
+
+- **Web UI (Streamlit)**: Provides the interactive dashboard with algorithm selection, task configuration panels, parameter sliders, and result displays. Orchestrates the core and visualization layers.
+
+- **Data Handling (Pandas)**: Manages task configuration tables, enables CSV/JSON export of results, and transforms simulation data for visualization.
+
 ## 4.4. Key Data Structures
 
 **TaskInstance** - Represents a single instance of a periodic task:
@@ -334,7 +351,7 @@ The Streamlit-based UI provides:
 
 1. **Algorithm Selection**: Category-based organization (Basic, Server-Based, Precedence, Overload, Aperiodic)
 2. **Task Configuration**: Editable data grid for task parameters
-3. **Server Configuration**: Capacity (Cₛ) and Period (Pₛ) sliders
+3. **Server Configuration**: Capacity ($C_s$) and Period ($P_s$) sliders
 4. **Preset Library**: 21 curated test scenarios from literature examples
 5. **Schedulability Analysis**: Real-time utilization tests with pass/fail indicators
 6. **Interactive Gantt Chart**:
@@ -360,7 +377,7 @@ Since this is a simulation study (Type 3), evaluation focuses on validating that
 
 1. **Correctness**: Do the algorithms produce the expected capacity management behavior as described in the literature?
 2. **Observability**: Can users clearly see the differences between server algorithms through visualization?
-3. **Parameter Sensitivity**: Does varying Cₛ/Pₛ produce the expected effects on aperiodic response time?
+3. **Parameter Sensitivity**: Does varying $C_s$/$P_s$ produce the expected effects on aperiodic response time?
 
 **Test Environment:**
 - Windows 11, Python 3.11
@@ -373,10 +390,10 @@ The following behaviors were verified against the algorithm descriptions in [1-3
 
 | Server Type | Expected Behavior | Verified? |
 |-------------|-------------------|-----------|
-| Polling Server | Capacity lost when no aperiodic tasks pending | ✓ (`capacity_lost` events observed) |
-| Deferrable Server | Capacity preserved within period | ✓ (`deferred` events observed) |
-| Sporadic Server | Replenishment scheduled at t + Pₛ | ✓ (`replenish` events at correct times) |
-| Background | Aperiodic runs only during CPU idle | ✓ (no preemption of periodic tasks) |
+| Polling Server | Capacity lost when no aperiodic tasks pending | Yes (`capacity_lost` events observed) |
+| Deferrable Server | Capacity preserved within period | Yes (`deferred` events observed) |
+| Sporadic Server | Replenishment scheduled at $t + P_s$ | Yes (`replenish` events at correct times) |
+| Background | Aperiodic runs only during CPU idle | Yes (no preemption of periodic tasks) |
 
 **Performance Metrics Collected:**
 
@@ -393,20 +410,20 @@ The following behaviors were verified against the algorithm descriptions in [1-3
 
 **Workload:** P1(C=1,P=10), P2(C=1,P=15), A1(C=8, arrives t=0)
 
-| Cₛ | Pₛ | A1 Response Time | Server Replenishments |
-|----|----|-----------------|-----------------------|
+| $C_s$ | $P_s$ | A1 Response Time | Server Replenishments |
+|-------|-------|------------------|-----------------------|
 | 2 | 5 | 17 | 4 |
 | 4 | 5 | 9 | 2 |
 | 8 | 5 | 8 | 1 |
 
-**Finding:** Server capacity directly impacts aperiodic response time. Larger Cₛ reduces the number of replenishment cycles needed, demonstrating that parameter exploration (RQ3) reveals optimal configurations.
+**Finding:** Server capacity directly impacts aperiodic response time. Larger $C_s$ reduces the number of replenishment cycles needed, demonstrating that parameter exploration (RQ3) reveals optimal configurations.
 
 ### 5.3.2. Server Algorithm Comparison (RQ1, RQ2)
 
 **Workload:** Basic Server Example (SERVER_EXAMPLE_1)
 - Periodic: P1(C=2,P=10), P2(C=1,P=8)
 - Aperiodic: A1(t=3,C=2), A2(t=8,C=1), A3(t=15,C=2)
-- Server: Cₛ=2, Pₛ=5
+- Server: $C_s$=2, $P_s$=5
 
 | Algorithm | Avg Response Time | Observable Behavior |
 |-----------|-------------------|---------------------|
@@ -432,12 +449,12 @@ The following behaviors were verified against the algorithm descriptions in [1-3
 - Task set: T1(C=2,P=4), T2(C=1,P=8)
 - U = 2/4 + 1/8 = 0.625
 - Bound (n=2): 2(2^0.5 - 1) = 0.828
-- Result: **SCHEDULABLE** (0.625 ≤ 0.828) ✓
+- Result: **SCHEDULABLE** (0.625 <= 0.828)
 
 **EDF Utilization Test:**
 - Task set: T1(C=1,P=3), T2(C=4,P=6)
 - U = 1/3 + 4/6 = 1.0
-- Result: **SCHEDULABLE** (U ≤ 1.0) ✓
+- Result: **SCHEDULABLE** (U <= 1.0)
 
 ## 5.4. Reproducibility
 
@@ -446,12 +463,12 @@ To reproduce these results:
 1. **Start the simulator**: `streamlit run scheduler/app.py`
 2. **Load preset**: Select "Server Capacity Demo" from the preset dropdown
 3. **Run simulation**: Click "Run Simulation" button
-4. **Vary parameters**: Adjust Cₛ slider to 2, 4, or 8 and re-run
+4. **Vary parameters**: Adjust $C_s$ slider to 2, 4, or 8 and re-run
 5. **Observe Gantt chart**: Note the aperiodic task completion time changes
 
 All presets and configurations are stored in `scheduler/configs.py` for reproducibility.
 
-*[Screenshot: See `figures/gantt_server_demo.png` for example Gantt chart output]*
+![Figure 5: Sporadic Server Gantt Chart - showing task execution (colored bars), deadline markers (red triangles), and server replenishment events](../../user_guide/screenshots/part3-server-algorithms/part3-sporadic-01-gantt.png)
 
 ---
 
@@ -464,37 +481,73 @@ This project delivers the following contributions:
 1. **Open-source simulator**: Python/Streamlit implementation of four server-based scheduling algorithms (Polling, Deferrable, Sporadic, Background) with correct capacity management behavior
 2. **Interactive visualization**: Plotly-based Gantt charts that display capacity events (`replenish`, `deferred`, `capacity_lost`) so users can observe algorithm differences directly
 3. **Preset library**: 21 curated task sets from literature examples for experimentation and validation
-4. **Parameter exploration**: Users can modify Cₛ/Pₛ via sliders and immediately observe the effect on aperiodic response times
+4. **Parameter exploration**: Users can modify $C_s$/$P_s$ via sliders and immediately observe the effect on aperiodic response times
 5. **Schedulability analysis**: Built-in utilization tests for RMS, EDF, and DMS with pass/fail indicators
 
 ## 6.2. Research Question Answers
 
 **RQ1: Can a discrete-event simulator faithfully implement server capacity management policies?**
 
-Yes. The simulator correctly implements capacity management as verified by observing the expected events: Polling Server generates `capacity_lost` events when no aperiodic tasks are pending, Deferrable Server preserves capacity via `deferred` events, and Sporadic Server schedules replenishments at t + Pₛ.
+**Answer: YES.** The simulator correctly implements capacity management for all four server algorithms, verified by observing expected event patterns in the simulation timeline:
+
+- Polling Server generates `capacity_lost` events when no aperiodic tasks are pending
+- Deferrable Server preserves capacity via `deferred` events (no `capacity_lost` events)
+- Sporadic Server schedules `replenish` events at exactly $t + P_s$ after capacity consumption
+- Background Scheduler executes aperiodic tasks only during CPU idle intervals
+
+This behavioral verification confirms faithful implementation of the algorithms as described in the literature (Sprunt et al., Lehoczky et al.).
 
 **RQ2: Does interactive visualization help users understand algorithm differences?**
 
-Yes. Gantt charts clearly show when capacity is lost versus preserved. Users can visually compare how the same workload behaves under different server algorithms by switching between them and observing the timeline changes.
+**Answer: YES.** The Gantt chart visualization provides clear visual differentiation between server algorithms:
+
+- Color-coded task bars distinguish periodic (blue) from aperiodic (orange) tasks
+- Server capacity events (`replenish`, `deferred`, `capacity_lost`) are labeled directly on the timeline
+- Users can visually compare how the same workload behaves under different server algorithms by switching between them
+- Hover tooltips provide detailed event information (remaining computation time, server capacity)
+- Zoom and pan capabilities enable exploration of specific time intervals
+
+Users can immediately see when capacity is lost (Polling) versus preserved (Deferrable) versus dynamically replenished (Sporadic).
 
 **RQ3: Can parameter exploration reveal optimal configurations?**
 
-Yes. Varying Cₛ from 2 to 8 with the Server Capacity Demo preset shows that larger capacity reduces aperiodic response time (17 → 8 time units). This enables users to find configurations that meet response time requirements without trial-and-error on real systems.
+**Answer: YES.** Parameter exploration via sliders enables rapid discovery of optimal server configurations:
+
+- Varying $C_s$ from 2 to 8 with the Server Capacity Demo preset demonstrates response time reduction from 17 to 8 time units (53% improvement)
+- Increasing server capacity reduces the number of replenishment cycles needed (4 to 2 to 1)
+- This insight cannot be obtained from utilization formulas alone--simulation reveals the temporal behavior
+
+Users can find configurations that meet response time requirements without trial-and-error deployment on real systems.
 
 ## 6.3. Recommendations for Future Work
 
-1. **Total Bandwidth Server (TBS)**: EDF-based server with dynamic deadline assignment [3]
-2. **Multi-Server Configurations**: Multiple servers with different priorities
-3. **Statistical Analysis**: Random task generation using UUniFast algorithm [6]
-4. **Resource Protocols**: Integration of Priority Inheritance/Ceiling protocols
+1. **Multi-core Extension**: Implement partitioned and global scheduling algorithms for multiprocessor systems, including task migration policies and load balancing strategies.
+
+2. **Resource Protocol Integration**: Complete integration of Priority Inheritance Protocol (PIP) and Priority Ceiling Protocol (PCP) into the main simulation loop for shared resource scenarios.
+
+3. **RTOS Trace Import**: Enable comparison of simulation results with actual execution traces from FreeRTOS, Zephyr, or other RTOS platforms to validate simulation fidelity.
+
+4. **Formal Verification**: Apply model checking techniques to provide formal schedulability guarantees beyond utilization-based tests.
+
+5. **Total Bandwidth Server (TBS)**: Implement EDF-based server with dynamic deadline assignment [3] for improved aperiodic responsiveness under EDF scheduling.
+
+6. **Statistical Analysis**: Implement random task generation using UUniFast algorithm [6] for systematic exploration of algorithm behavior across diverse workload scenarios.
+
+7. **Multi-Server Configurations**: Support multiple servers with different priorities and capacities for more flexible aperiodic task handling.
 
 ## 6.4. Limitations
 
-1. **Discrete-time simulation**: Unit time steps may not capture fine-grained continuous-time behavior; results are valid for discrete workloads only
-2. **No overhead modeling**: Context switch costs and scheduler overhead are not simulated
-3. **Deterministic workloads only**: Random/stochastic task generation is not implemented; all task sets are manually defined
-4. **Single processor**: Multiprocessor scheduling is outside the scope of this project
-5. **No hardware validation**: Results are simulation-based and have not been validated against an actual RTOS implementation
+1. **Single-processor only**: The simulator currently supports uniprocessor scheduling. Multi-core scenarios with task migration, partitioned scheduling, and global scheduling are not yet implemented.
+
+2. **No resource contention modeling**: Priority Inheritance Protocol (PIP) and Priority Ceiling Protocol (PCP) are implemented in the codebase (`scheduler/core/protocols/`) but not yet integrated into the main simulation loop. Shared resource scenarios cannot be simulated.
+
+3. **Limited RQ2 validation**: The assessment of visualization effectiveness (RQ2) is based on feature implementation and informal observation. A formal user study with quantitative metrics would provide stronger evidence of visualization effectiveness.
+
+4. **Simplified execution model**: The simulator does not model I/O delays, cache effects, interrupt latency, or context switch overhead beyond basic counting. Results represent idealized discrete-time behavior.
+
+5. **Deterministic workloads only**: Random/stochastic task generation using algorithms like UUniFast is not implemented. All task sets must be manually defined or loaded from presets.
+
+6. **No hardware validation**: Results are simulation-based and have not been validated against actual RTOS implementations (e.g., FreeRTOS, Zephyr). Simulation fidelity to real hardware behavior is not verified.
 
 ---
 

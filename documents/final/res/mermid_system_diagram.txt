@@ -1,10 +1,10 @@
 flowchart LR
     subgraph Input
-        P["Periodic Tasks<br/>τ₁, τ₂, τ₃<br/>(C, P, D)"]
-        A["Aperiodic Tasks<br/>A₁, A₂<br/>(r, C, d)"]
+        P["Periodic Tasks<br/>T1, T2, T3<br/>(C, P, D)"]
+        A["Aperiodic Tasks<br/>A1, A2<br/>(r, C, d)"]
     end
     subgraph Scheduler
-        S["Server<br/>(Cₛ, Pₛ)"]
+        S["Server<br/>(Cs, Ps)"]
         Q[Ready Queue]
     end
     CPU[Uniprocessor]
