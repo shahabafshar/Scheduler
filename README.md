@@ -13,10 +13,11 @@
 
 This project is developed and maintained by Shahab Afshar.
 
+[![Try Online](https://img.shields.io/badge/Try_Online-phd--scheduler.dashplan.io-FF4B4B?style=flat-square&logo=streamlit&logoColor=white)](https://phd-scheduler.dashplan.io)
 [![ORCID](https://img.shields.io/badge/ORCID-0009--0000--3682--0471-A6CE39?style=flat-square&logo=ORCID&logoColor=white)](https://orcid.org/0009-0000-3682-0471)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Shahab_Afshar-0077B5?style=flat-square&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/shahabafshar)
 [![GitHub](https://img.shields.io/badge/GitHub-shahabafshar-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/shahabafshar/Scheduler)
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://shahabafshar-scheduler.streamlit.app)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat-square&logo=docker&logoColor=white)](https://github.com/shahabafshar/Scheduler)
 
 **Professor:** [Dr. G. Manimaran](https://www.engineering.iastate.edu/people/profile/gmani/) [![Google Scholar](https://img.shields.io/badge/Google_Scholar-4285F4?style=flat-square&logo=google-scholar&logoColor=white)](https://scholar.google.com/citations?user=vkOTo_EAAAAJ)
 
@@ -46,6 +47,7 @@ This project is developed and maintained by Shahab Afshar.
 
 - Python 3.10 or newer
 - pip (Python package manager)
+- Docker (optional, for containerized deployment)
 
 ## Installation
 
@@ -59,7 +61,7 @@ cd Scheduler
 1. Install dependencies:
 
 ```bash
-pip install -r scheduler/requirements.txt
+pip install -r requirements.txt
 ```
 
 ## Usage
@@ -71,6 +73,23 @@ streamlit run scheduler/app.py
 ```
 
 The application will open in your default web browser at `http://localhost:8501`
+
+## Docker Deployment
+
+Build and run with Docker Compose:
+
+```bash
+docker-compose up -d
+```
+
+Or build and run manually:
+
+```bash
+docker build -t rt-scheduler .
+docker run -d -p 8501:8501 --name rt-scheduler rt-scheduler
+```
+
+Access the application at `http://localhost:8501`
 
 ### Quick Start
 
