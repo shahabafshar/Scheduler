@@ -1,7 +1,7 @@
 services:
   scheduler:
     build: .
-    container_name: rt-scheduler
+    container_name: phd-scheduler
     ports:
       - "8501:8501"
     restart: unless-stopped
