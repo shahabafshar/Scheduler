@@ -85,10 +85,15 @@ def main():
     with header_col1:
         st.title("Real-Time Scheduling Simulator")
     with header_col2:
-        if st.button("Presets", type="secondary", width='stretch', key="header_presets_btn"):
+        if st.button("Presets", type="secondary", width='stretch', key="header_presets_btn", help="Browse 21 ready-to-run task configurations"):
             show_preset_dialog()
     with header_col3:
         run_button = st.button("Run", type="primary", width='stretch', key="header_run_btn")
+
+    # Show hint banner on first visit
+    if 'first_visit' not in st.session_state:
+        st.session_state.first_visit = True
+        st.success("✨ **New here?** Click the **Presets** button above to load ready-made example configurations!", icon="👉")
 
     # ========== INITIALIZE SESSION STATE ==========
     if 'algorithm_category' not in st.session_state:
