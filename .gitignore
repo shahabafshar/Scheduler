@@ -178,7 +178,6 @@ $RECYCLE.BIN/
 
 # Streamlit
 .streamlit/secrets.toml
-.streamlit/config.toml
 
 # Project specific
 *.tmp
