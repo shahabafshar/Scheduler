@@ -1,10 +1,10 @@
 # Screenshot Capture Automation
 
-This directory contains scripts for systematically capturing all screenshots for the Real-Time Scheduling Simulator User Guide.
+Scripts for capturing screenshots are located in the `tools/` folder at the project root.
 
 ## Scripts
 
-### 1. `capture_all_screenshots.py`
+### 1. `tools/capture_all_screenshots.py`
 **Main automation script using Playwright**
 
 This script systematically captures all screenshots, ensuring:
@@ -23,7 +23,14 @@ playwright install chromium
 **Usage:**
 ```bash
 # Make sure Streamlit app is running on http://localhost:8501
+cd tools
 python capture_all_screenshots.py
+
+# Resume from a specific part
+python capture_all_screenshots.py --start-from 3
+
+# Run only a specific part
+python capture_all_screenshots.py --part 2
 ```
 
 **Features:**
@@ -32,8 +39,9 @@ python capture_all_screenshots.py
 - Selects correct tabs (Gantt, Metrics, Analysis, etc.)
 - Handles preset loading (dialog closes automatically)
 - Reports statistics on completion
+- Resume functionality (--start-from, --part flags)
 
-### 2. `automated_screenshot_capture.py`
+### 2. `tools/automated_screenshot_capture.py`
 **Plan generator and instruction creator**
 
 Generates:
@@ -42,17 +50,8 @@ Generates:
 
 **Usage:**
 ```bash
+cd tools
 python automated_screenshot_capture.py
-```
-
-### 3. `organize_screenshots.py`
-**Organizes screenshots from temp directory to proper structure**
-
-Moves screenshots from browser extension temp directory to organized folders.
-
-**Usage:**
-```bash
-python organize_screenshots.py
 ```
 
 ## Screenshot Organization

@@ -15,7 +15,7 @@ import sys
 import argparse
 
 BASE_URL = "http://localhost:8501"
-SCREENSHOTS_DIR = Path(__file__).parent / "screenshots"
+SCREENSHOTS_DIR = Path(__file__).parent.parent / "documents" / "user_guide" / "screenshots"
 STATS = {"total": 0, "replaced": 0, "new": 0, "errors": 0}
 
 # Part mapping for resume functionality

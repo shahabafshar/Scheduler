@@ -10,7 +10,7 @@ from typing import List, Dict, Optional, Tuple
 import json
 
 # Screenshot directories
-BASE_DIR = Path(__file__).parent
+BASE_DIR = Path(__file__).parent.parent / "documents" / "user_guide"
 SCREENSHOTS_DIR = BASE_DIR / "screenshots"
 SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
 
