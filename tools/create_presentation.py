@@ -7,11 +7,11 @@ from pptx.util import Inches, Pt
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 import os
 
-# Paths
-TEMPLATE_PATH = "MY ECPE TEMPLATE.pptx"
-OUTPUT_PATH = "documents/final/Real_Time_Scheduling_Simulator_Presentation.pptx"
-FIGURES_PATH = "documents/final/figures"
-SCREENSHOTS_PATH = "user_guide/screenshots"
+# Paths (relative to tools/ folder)
+TEMPLATE_PATH = "MY ECPE TEMPLATE.pptx"  # In same folder
+OUTPUT_PATH = "../documents/final/Real_Time_Scheduling_Simulator_Presentation.pptx"
+FIGURES_PATH = "../documents/final/figures"
+SCREENSHOTS_PATH = "../documents/user_guide/screenshots"
 
 
 def add_text_with_bullets(text_frame, items, font_size=14, start_fresh=True):

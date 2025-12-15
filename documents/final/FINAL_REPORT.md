@@ -470,7 +470,7 @@ To reproduce these results:
 
 All presets and configurations are stored in `scheduler/configs.py` for reproducibility.
 
-![Figure 5: Sporadic Server Gantt Chart - showing task execution (colored bars), deadline markers (red triangles), and server replenishment events](../../user_guide/screenshots/part3-server-algorithms/part3-sporadic-01-gantt.png)
+![Figure 5: Sporadic Server Gantt Chart - showing task execution (colored bars), deadline markers (red triangles), and server replenishment events](../user_guide/screenshots/part3-server-algorithms/part3-sporadic-01-gantt.png)
 
 ---
 

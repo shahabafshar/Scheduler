@@ -84,7 +84,7 @@ These are **optional enhancements** - the simulator is fully functional for all 
 
 ## Documentation Coverage
 
-This simulator implements **100% of task scheduling algorithms** from the documentation in `_docs/`:
+This simulator implements **100% of task scheduling algorithms** from the documentation in `documents/literature/`:
 - Task Scheduling (RMS, EDF, DMS, LLF) ✅
 - Resource Protocols (PIP, PCP) ✅
 - Combined Scheduling (Servers) ✅

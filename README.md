@@ -1,98 +1,134 @@
 # Real-Time Scheduling Simulator
 
-A comprehensive simulator for real-time task scheduling algorithms with intuitive visualization and analysis tools.
+## About
+
+```text
+███████╗ ██████╗██╗  ██╗███████╗██████╗ ██╗   ██╗██╗     ███████╗██████╗
+██╔════╝██╔════╝██║  ██║██╔════╝██╔══██╗██║   ██║██║     ██╔════╝██╔══██╗
+███████╗██║     ███████║█████╗  ██║  ██║██║   ██║██║     █████╗  ██████╔╝
+╚════██║██║     ██╔══██║██╔══╝  ██║  ██║██║   ██║██║     ██╔══╝  ██╔══██╗
+███████║╚██████╗██║  ██║███████╗██████╔╝╚██████╔╝███████╗███████╗██║  ██║
+╚══════╝ ╚═════╝╚═╝  ╚═╝╚══════╝╚═════╝  ╚═════╝ ╚══════╝╚══════╝╚═╝  ╚═╝
+```
+
+This project is developed and maintained by Shahab Afshar.
+
+[![ORCID](https://img.shields.io/badge/ORCID-0009--0000--3682--0471-A6CE39?style=flat-square&logo=ORCID&logoColor=white)](https://orcid.org/0009-0000-3682-0471)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Shahab_Afshar-0077B5?style=flat-square&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/shahabafshar)
+
+**Professor:** [Dr. G. Manimaran](https://www.ece.iastate.edu/gmani/) [![Google Scholar](https://img.shields.io/badge/Google_Scholar-4285F4?style=flat-square&logo=google-scholar&logoColor=white)](https://scholar.google.com/citations?user=PLACEHOLDER)
+
+**Course:** CPR E 458/558: Real-Time Systems
+**Department:** Electrical and Computer Engineering (ECPE)
+**University:** Iowa State University
+
+![FC-EDF Gantt Chart](documents/user_guide/screenshots/part6-overload/part6-overload-03-fc-edf-gantt.png)
+**Real-Time Scheduling Simulator** is a comprehensive discrete-event simulator for analyzing and visualizing real-time task scheduling algorithms. It implements server-based algorithms (Polling, Deferrable, Sporadic, Background) for mixed periodic-aperiodic workloads, providing interactive Gantt chart visualizations and schedulability analysis.
+
+## Visual Abstract
+
+![Visual Abstract](documents/final/visual-abstract.png)
+
+
 
 ## Features
 
-✅ **7 Scheduling Algorithms**:
-- RMS (Rate Monotonic)
-- EDF (Earliest Deadline First)
-- DMS (Deadline Monotonic)
-- LLF (Least Laxity First)
-- Polling Server
-- Deferrable Server
-- Sporadic Server
+- **13+ Scheduling Algorithms**: RMS, EDF, DMS, LLF, Polling Server, Deferrable Server, Sporadic Server, Background Scheduler, and more
+- **Interactive Gantt Charts**: Visualize task execution with color-coded bars, deadline markers, and server capacity events
+- **Schedulability Analysis**: Utilization tests for RMS, EDF, DMS with pass/fail indicators
+- **Parameter Exploration**: Adjust server capacity ($C_s$) and period ($P_s$) via sliders
+- **21 Preset Configurations**: Curated task sets from literature examples
+- **Performance Metrics**: CPU utilization, context switches, deadline misses, response times
 
-✅ **Schedulability Analysis**: Utilization tests, completion time test, harmonic detection
+## Prerequisites
 
-✅ **Interactive Visualizations**:
-- Gantt charts (execution timeline)
-- Metrics dashboard (4 charts)
-- Detailed event timeline
+- Python 3.10 or newer
+- pip (Python package manager)
 
-✅ **6 Preset Examples** from documentation
+## Installation
 
-✅ **Export**: CSV download capability
-
-## Quick Start
-
-### Run the Simulator
+1. Clone this repository:
 
 ```bash
-# From project root
-streamlit run scheduler/app.py
-
-# Or
-cd scheduler
-streamlit run app.py
+git clone https://github.com/shahabafshar/Scheduler.git
+cd Scheduler
 ```
 
-### Test Without UI
+1. Install dependencies:
 
-```bash
-python test_scheduler.py
-```
-
-## What You Get
-
-1. **Task Definition**: Define periodic tasks with computation time, period, and deadline
-2. **Algorithm Selection**: Choose from 7 scheduling algorithms
-3. **Schedulability Analysis**: Automatic verification of schedule feasibility
-4. **Visualization**: Interactive Gantt charts and metrics
-5. **Export**: Download results for further analysis
-
-## Test Results
-
-RMS Example 1 (T1=(2,4), T2=(1,8)):
-- ✅ CPU Utilization: 65%
-- ✅ No deadline misses
-- ✅ Verified against documentation
-
-## Documentation
-
-- `FINAL_STATUS.md` - Complete project status
-- `scheduler/COMPLETE_STATUS.md` - Implementation details
-- `scheduler/UI_UPDATE.md` - UI features and updates
-- `scheduler/README_RUNNING.md` - How to run guide
-
-## Architecture
-
-```
-scheduler/
-├── app.py                 # Streamlit UI
-├── configs.py             # Preset examples
-├── core/                  # Core algorithms
-├── visualization/         # Charts and graphs
-└── requirements.txt       # Dependencies
-```
-
-## Requirements
-
-- Python 3.10+
-- Streamlit
-- Plotly
-- Pandas
-
-Install:
 ```bash
 pip install -r scheduler/requirements.txt
 ```
 
-## Status
+## Usage
 
-✅ **Production Ready** - Fully functional with verified accuracy
-🎯 **All core features implemented and tested**
-📊 **Rich visualizations and analysis tools**
+Start the interactive web application:
 
-The simulator is ready to use for real-time scheduling analysis!
+```bash
+streamlit run scheduler/app.py
+```
 
+The application will open in your default web browser at `http://localhost:8501`
+
+### Quick Start
+
+1. **Select Algorithm**: Choose from Basic, Server-Based, Precedence, or Overload categories
+2. **Configure Tasks**: Edit task parameters in the data grid or load a preset
+3. **Run Simulation**: Click "Run Simulation" to generate results
+4. **Analyze Results**: View Gantt charts, metrics, and schedulability analysis
+
+## Project Structure
+
+```text
+scheduler/
+├── app.py                  # Streamlit web UI
+├── configs.py              # Preset configurations
+├── core/                   # Core scheduling logic
+│   ├── task.py             # Data models
+│   ├── scheduler_base.py   # Base scheduler class
+│   ├── algorithms/         # Scheduling algorithms
+│   │   ├── rms.py          # Rate Monotonic
+│   │   ├── edf.py          # Earliest Deadline First
+│   │   ├── dms.py          # Deadline Monotonic
+│   │   ├── llf.py          # Least Laxity First
+│   │   └── combined.py     # Server-based algorithms
+│   ├── analysis/           # Schedulability tests
+│   └── protocols/          # Resource protocols (PIP/PCP)
+├── visualization/          # Plotting components
+│   ├── gantt.py            # Gantt chart generation
+│   └── metrics_dashboard.py
+└── requirements.txt        # Python dependencies
+```
+
+## Supported Algorithms
+
+| Category | Algorithms |
+|----------|------------|
+| **Basic** | RMS, EDF, DMS, LLF |
+| **Server-Based** | Polling Server, Deferrable Server, Sporadic Server, Background Scheduler |
+| **Precedence** | RMS/EDF/DMS with task dependencies |
+| **Overload** | Imprecise Computation, HVDF, (m,k)-firm |
+
+## Screenshots
+
+### Precedence-Constrained Scheduling
+
+![Precedence Graph](documents/user_guide/screenshots/part4-precedence/part4-precedence-constrained-05-rms-chain-precedence-graph.png)
+
+Task dependency visualization showing precedence constraints between tasks.
+
+### Service Level Analysis
+
+![Service Level Plot](documents/user_guide/screenshots/part6-overload/part6-overload-04-fc-edf-service-level-plot.png)
+
+Service level analysis showing task completion rates and system performance under overload conditions.
+
+## References
+
+- Liu & Layland (1973) - Rate Monotonic Scheduling
+- Sprunt, Sha & Lehoczky (1989) - Sporadic Server
+- Strosnider, Lehoczky & Sha (1995) - Deferrable Server
+
+## License
+
+MIT License

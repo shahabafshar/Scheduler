@@ -113,7 +113,7 @@ Sources: Sprunt et al. (1989), Strosnider et al. (1995)
 - **Server-Based:** Polling, Deferrable, Sporadic, Background
 - **Advanced:** Precedence-constrained, Overload handling, Value-based (HVDF)
 
-![Full Application Layout](../../user_guide/screenshots/part1-getting-started/part1-02-full-layout.png)
+![Full Application Layout](../user_guide/screenshots/part1-getting-started/part1-02-full-layout.png)
 
 <!-- SPEAKER NOTES:
 - Show the screenshot - this is what users interact with
@@ -206,7 +206,7 @@ class ServerSchedulerBase(SchedulerBase):
 
 ### Gantt Chart Evidence
 
-![Polling Server Gantt](../../user_guide/screenshots/part3-server-algorithms/part3-polling-02-gantt-chart.png)
+![Polling Server Gantt](../user_guide/screenshots/part3-server-algorithms/part3-polling-02-gantt-chart.png)
 
 *Polling Server: Gantt chart shows task execution and server events*
 
@@ -244,7 +244,7 @@ class ServerSchedulerBase(SchedulerBase):
 - Server events (`replenish`, `deferred`, `capacity_lost`) labeled on timeline
 - Hover tooltips show remaining computation time
 
-![Sporadic Server Gantt with Events](../../user_guide/screenshots/part3-server-algorithms/part3-sporadic-01-gantt.png)
+![Sporadic Server Gantt with Events](../user_guide/screenshots/part3-server-algorithms/part3-sporadic-01-gantt.png)
 
 <!-- SPEAKER NOTES:
 - RQ3: Parameter exploration WORKS - table shows clear trend
@@ -362,24 +362,24 @@ Varying $C_s$ from 2 to 8 shows response time reduction (17 to 8 time units), en
 ## Server Algorithm Comparisons
 
 ### Deferrable Server
-![Deferrable Server Gantt](../../user_guide/screenshots/part3-server-algorithms/part3-deferrable-01-gantt.png)
+![Deferrable Server Gantt](../user_guide/screenshots/part3-server-algorithms/part3-deferrable-01-gantt.png)
 
 ### Server Analysis Dashboard
 
-![Server Analysis](../../user_guide/screenshots/part3-server-algorithms/part3-polling-03-server-analysis.png)
+![Server Analysis](../user_guide/screenshots/part3-server-algorithms/part3-polling-03-server-analysis.png)
 
 ### Background Scheduler
-![Background Scheduler Gantt](../../user_guide/screenshots/part3-server-algorithms/part3-background-01-gantt.png)
+![Background Scheduler Gantt](../user_guide/screenshots/part3-server-algorithms/part3-background-01-gantt.png)
 
 ---
 
 ## Basic Algorithm Results
 
 ### RMS Gantt Chart
-![RMS Gantt](../../user_guide/screenshots/part2-basic-algorithms/part2-rms-04-gantt-chart.png)
+![RMS Gantt](../user_guide/screenshots/part2-basic-algorithms/part2-rms-04-gantt-chart.png)
 
 ### EDF Priority Timeline
-![EDF Priority Timeline](../../user_guide/screenshots/part2-basic-algorithms/part2-edf-04-priority-timeline.png)
+![EDF Priority Timeline](../user_guide/screenshots/part2-basic-algorithms/part2-edf-04-priority-timeline.png)
 
 ---
 
@@ -387,10 +387,10 @@ Varying $C_s$ from 2 to 8 shows response time reduction (17 to 8 time units), en
 
 ### Server Configuration Panel
 
-![Server Configuration](../../user_guide/screenshots/part3-server-algorithms/part3-server-02-server-configuration.png)
+![Server Configuration](../user_guide/screenshots/part3-server-algorithms/part3-server-02-server-configuration.png)
 
 ### Preset System
-![Preset Dialog](../../user_guide/screenshots/part8-presets/part8-01-preset-dialog.png)
+![Preset Dialog](../user_guide/screenshots/part8-presets/part8-01-preset-dialog.png)
 
 ---
 

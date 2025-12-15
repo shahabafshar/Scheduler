@@ -156,7 +156,7 @@ Scheduler/
 │       ├── ieee-template.tex       # LaTeX template
 │       └── header.tex              # LaTeX header
 │
-├── _docs/                          # Algorithm documentation (17 files)
+├── documents/literature/           # Algorithm documentation (17 files)
 │
 ├── test_*.py                       # Test files (at project root)
 ├── CLAUDE.md                       # AI assistant instructions
@@ -856,7 +856,7 @@ pip install -r scheduler/requirements.txt
 
 ### 12.2 Project Documentation
 
-- `_docs/` folder contains 17 comprehensive markdown files covering all algorithms
+- `documents/literature/` folder contains 17 comprehensive markdown files covering all algorithms
 - `CLAUDE.md` provides AI assistant instructions for code navigation
 - `FINAL_STATUS.md` documents project completion status
 

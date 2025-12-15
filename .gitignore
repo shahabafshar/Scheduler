@@ -195,6 +195,10 @@ tmp/
 temp/
 *.tmp
 CLAUDE.md
+scheduler/ARCHITECTURE_ASSESSMENT.md
+documents/proposals/
+documents/final/FINAL_REPORT.md
+documents/final/PRESENTATION.md
 
 # Data files (if sensitive or large)
 # Uncomment if you have large data files
