@@ -2,7 +2,7 @@
 
 **Shahab Afshar (CprE 558)**
 
-*CPR E 458/558 Real-Time Systems, Fall 2024*
+*CPR E 458/558 Real-Time Systems, Fall 2025*
 
 *Department of Electrical and Computer Engineering*
 
@@ -13,6 +13,8 @@
 ## Abstract
 
 This project implements and evaluates server-based scheduling algorithms for mixed periodic-aperiodic real-time workloads. A comprehensive discrete-event simulator was developed in Python/Streamlit, implementing four server-based algorithms (Polling Server, Deferrable Server, Sporadic Server, and Background Scheduler) along with foundational scheduling algorithms (RMS, EDF, DMS, LLF). The simulator provides interactive Gantt chart visualizations, schedulability analysis, and performance metrics including CPU utilization, context switches, deadline misses, and aperiodic response times. Evaluation using deterministic benchmark scenarios demonstrates correct implementation of server capacity management policies: Polling Server loses unused capacity, Deferrable Server preserves capacity within periods, and Sporadic Server provides dynamic replenishment for optimal aperiodic response times. The simulator serves as both an educational tool for understanding real-time scheduling concepts and a platform for comparative algorithm analysis.
+
+![Visual Abstract](visual-abstract.png)
 
 ---
 
@@ -93,7 +95,7 @@ The core problem is: **How do different server capacity management policies affe
 
 # 3. Solution Methodology / Approach
 
-Our approach is to build a discrete-event simulator that implements server-based algorithms exactly as described in the seminal literature [1-3], allowing rapid comparison of algorithm behavior under identical workload conditions. The simulator provides interactive Gantt chart visualization so users can directly observe capacity management behavior--when capacity is consumed, when it is replenished, and how these dynamics affect aperiodic response times.
+Our approach is to build a discrete-event simulator that implements server-based algorithms exactly as described in the seminal literature [1][2][3], allowing rapid comparison of algorithm behavior under identical workload conditions. The simulator provides interactive Gantt chart visualization so users can directly observe capacity management behavior--when capacity is consumed, when it is replenished, and how these dynamics affect aperiodic response times.
 
 ## 3.1. Algorithms / Protocols / Architectures
 
@@ -105,7 +107,7 @@ $$U = \sum_{i=1}^{n} \frac{C_i}{P_i} \leq n(2^{1/n} - 1)$$
 
 ### 3.1.2. Polling Server
 
-Introduced by Lehoczky et al. [2], the Polling Server provides a simple mechanism for aperiodic task handling.
+Introduced by Strosnider et al. [2], the Polling Server provides a simple mechanism for aperiodic task handling.
 
 **Mechanism:** The server is a periodic task with capacity $C_s$ and period $P_s$. At each server invocation:
 - If aperiodic tasks are waiting: serve them using available capacity
@@ -135,7 +137,7 @@ def _execute_server_slot(self, t: int) -> bool:
 
 ### 3.1.3. Deferrable Server
 
-Also introduced by Lehoczky et al. [2], the Deferrable Server improves upon Polling by preserving unused capacity.
+Introduced by Strosnider et al. [2], the Deferrable Server improves upon Polling by preserving unused capacity.
 
 **Mechanism:** Unlike Polling, the server preserves its capacity when no aperiodic tasks are available. Capacity can be used at any time during the period.
 
@@ -386,7 +388,7 @@ Since this is a simulation study (Type 3), evaluation focuses on validating that
 
 ## 5.2. Correctness Validation
 
-The following behaviors were verified against the algorithm descriptions in [1-3]:
+The following behaviors were verified against the algorithm descriptions in [1][2][3]:
 
 | Server Type | Expected Behavior | Verified? |
 |-------------|-------------------|-----------|
@@ -478,7 +480,7 @@ All presets and configurations are stored in `scheduler/configs.py` for reproduc
 
 This project delivers the following contributions:
 
-1. **Open-source simulator**: Python/Streamlit implementation of four server-based scheduling algorithms (Polling, Deferrable, Sporadic, Background) with correct capacity management behavior
+1. **Open-source simulator**: Python/Streamlit implementation of four server-based scheduling algorithms (Polling, Deferrable, Sporadic, Background) with correct capacity management behavior. Source code available at: <https://github.com/shahabafshar/Scheduler>
 2. **Interactive visualization**: Plotly-based Gantt charts that display capacity events (`replenish`, `deferred`, `capacity_lost`) so users can observe algorithm differences directly
 3. **Preset library**: 21 curated task sets from literature examples for experimentation and validation
 4. **Parameter exploration**: Users can modify $C_s$/$P_s$ via sliders and immediately observe the effect on aperiodic response times
@@ -495,7 +497,7 @@ This project delivers the following contributions:
 - Sporadic Server schedules `replenish` events at exactly $t + P_s$ after capacity consumption
 - Background Scheduler executes aperiodic tasks only during CPU idle intervals
 
-This behavioral verification confirms faithful implementation of the algorithms as described in the literature (Sprunt et al., Lehoczky et al.).
+This behavioral verification confirms faithful implementation of the algorithms as described in the literature (Sprunt et al., Strosnider et al.).
 
 **RQ2: Does interactive visualization help users understand algorithm differences?**
 
@@ -531,7 +533,7 @@ Users can find configurations that meet response time requirements without trial
 
 5. **Total Bandwidth Server (TBS)**: Implement EDF-based server with dynamic deadline assignment [3] for improved aperiodic responsiveness under EDF scheduling.
 
-6. **Statistical Analysis**: Implement random task generation using UUniFast algorithm [6] for systematic exploration of algorithm behavior across diverse workload scenarios.
+6. **Statistical Analysis**: Implement random task generation using UUniFast algorithm for systematic exploration of algorithm behavior across diverse workload scenarios.
 
 7. **Multi-Server Configurations**: Support multiple servers with different priorities and capacities for more flexible aperiodic task handling.
 
@@ -553,33 +555,29 @@ Users can find configurations that meet response time requirements without trial
 
 ## Self-Assessment of Project Completion
 
-| Project Learning Objectives | Status | Pointers |
-|----------------------------|--------|----------|
-| Self-contained description of project goal, scope, and requirements | Fully Completed | Section 2, pages 2-3 |
-| Self-contained description of solutions (algorithms/protocols) | Fully Completed | Section 3, pages 3-6 |
-| Adequate description of implementation details | Fully Completed | Section 4, pages 6-8 |
-| Testing and evaluation - test cases, metrics, results | Fully Completed | Section 5, pages 8-10 |
+| Project Learning Objectives | Status | Pointers in the document |
+|----------------------------|--------|--------------------------|
+| Self-contained description of project goal, scope, and requirements | Fully Completed | Section 2, page 2 |
+| Self-contained description of solutions (algorithms/protocols) | Fully Completed | Section 3, page 3 |
+| Adequate description of implementation details | Fully Completed | Section 4, pages 4-5 |
+| Testing and evaluation - test cases, metrics, results | Fully Completed | Section 5, page 6 |
 | **Overall Project Success Assessment** | **Fully Successful** | |
 
 ---
 
 # 7. References
 
-[1] B. Sprunt, L. Sha, and J. P. Lehoczky, "Aperiodic task scheduling for hard-real-time systems," *Real-Time Systems*, vol. 1, no. 1, pp. 27-60, 1989.
+[1] B. Sprunt, L. Sha, and J. Lehoczky, "Aperiodic task scheduling for Hard-Real-Time systems," *Real-Time Syst*, vol. 1, no. 1, pp. 27-60, June 1989, doi: 10.1007/BF02341920.
 
-[2] J. P. Lehoczky, L. Sha, and J. K. Strosnider, "Enhanced aperiodic responsiveness in hard real-time environments," in *Proc. IEEE Real-Time Systems Symposium*, 1987, pp. 261-270.
+[2] J. K. Strosnider, J. P. Lehoczky, and L. Sha, "The deferrable server algorithm for enhanced aperiodic responsiveness in hard real-time environments," *IEEE Transactions on Computers*, vol. 44, no. 1, pp. 73-91, 1995, doi: 10.1109/12.368008.
 
-[3] M. Spuri and G. C. Buttazzo, "Scheduling aperiodic tasks in dynamic priority systems," *Real-Time Systems*, vol. 10, no. 2, pp. 179-210, 1996.
+[3] M. Spuri and G. Buttazzo, "Scheduling aperiodic tasks in dynamic priority systems," *Real-Time Systems*, vol. 10, no. 2, pp. 179-210, Mar. 1996, doi: 10.1007/BF00360340.
 
-[4] C. L. Liu and J. W. Layland, "Scheduling algorithms for multiprogramming in a hard-real-time environment," *Journal of the ACM*, vol. 20, no. 1, pp. 46-61, 1973.
-
-[5] G. C. Buttazzo, *Hard Real-Time Computing Systems: Predictable Scheduling Algorithms and Applications*, 3rd ed. New York: Springer, 2011.
-
-[6] E. Bini and G. C. Buttazzo, "Measuring the performance of schedulability tests," *Real-Time Systems*, vol. 30, no. 1-2, pp. 129-154, 2005.
+[4] C. L. Liu and J. W. Layland, "Scheduling Algorithms for Multiprogramming in a Hard-Real-Time Environment," *J. ACM*, vol. 20, no. 1, pp. 46-61, Jan. 1973, doi: 10.1145/321738.321743.
 
 ---
 
 **Prepared by:** Shahab Afshar
-**Date:** December 2024
+**Date:** December 2025
 **Instructor:** Dr. G. Manimaran
 **Department:** Electrical and Computer Engineering, Iowa State University

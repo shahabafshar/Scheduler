@@ -1,15 +1,21 @@
 \documentclass[conference,twocolumn]{IEEEtran}
 \usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
 \usepackage{amsmath,amssymb}
 \usepackage{graphicx}
 \usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
 \usepackage{hyperref}
 \usepackage{listings}
 \usepackage{xcolor}
+\usepackage{float}
+\usepackage{cite}
+\usepackage{balance}
 
 % Code listing style
 \lstset{
-  basicstyle=\ttfamily\footnotesize,
+  basicstyle=\ttfamily\scriptsize,
   breaklines=true,
   frame=single,
   backgroundcolor=\color{gray!10},
@@ -18,9 +24,31 @@
   stringstyle=\color{red!50!black}
 }
 
-% Tight list spacing
+% Tight list spacing for IEEE
 \providecommand{\tightlist}{%
   \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+% Fix for longtable in two-column mode
+\makeatletter
+\let\oldlt\longtable
+\let\endoldlt\endlongtable
+\def\longtable{\@ifnextchar[\longtable@i \longtable@ii}
+\def\longtable@i[#1]{\begin{figure}[H]
+\onecolumn
+\begin{minipage}{0.5\textwidth}
+\oldlt[#1]
+}
+\def\longtable@ii{\begin{figure}[H]
+\onecolumn
+\begin{minipage}{0.5\textwidth}
+\oldlt
+}
+\def\endlongtable{%
+\endoldlt
+\end{minipage}
+\twocolumn
+\end{figure}}
+\makeatother
 
 $if(highlighting-macros)$
 $highlighting-macros$
@@ -29,7 +57,8 @@ $endif$
 \begin{document}
 
 \title{$title$}
-\author{$author$}
+\author{\IEEEauthorblockN{$author$}
+\IEEEauthorblockA{$affiliation$}}
 
 \maketitle
 
@@ -39,6 +68,17 @@ $abstract$
 \end{abstract}
 $endif$
 
+$if(keywords)$
+\begin{IEEEkeywords}
+$keywords$
+\end{IEEEkeywords}
+$endif$
+
 $body$
+
+$if(bibliography)$
+\bibliographystyle{IEEEtran}
+\bibliography{$bibliography$}
+$endif$
 
 \end{document}

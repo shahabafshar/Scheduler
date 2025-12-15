@@ -6,10 +6,14 @@
 **Shahab Afshar**
 
 CPR E 458/558: Real-Time Systems
-Fall 2024
+Fall 2025
 
 Department of Electrical and Computer Engineering
 Iowa State University
+
+GitHub: <https://github.com/shahabafshar/Scheduler>
+
+![Visual Abstract](visual-abstract.png)
 
 <!-- SPEAKER NOTES:
 - Introduce yourself and the project title
@@ -76,7 +80,7 @@ An engine control unit must handle:
 
 ![Server Algorithm Comparison](figures/server_comparison.jpg)
 
-Sources: Sprunt et al. (1989), Lehoczky et al. (1987)
+Sources: Sprunt et al. (1989), Strosnider et al. (1995)
 
 <!-- SPEAKER NOTES:
 - Walk through each server type briefly
@@ -392,13 +396,13 @@ Varying $C_s$ from 2 to 8 shows response time reduction (17 to 8 time units), en
 
 # References
 
-[1] B. Sprunt, L. Sha, and J. Lehoczky, "Aperiodic task scheduling for hard-real-time systems," *Real-Time Systems*, vol. 1, no. 1, pp. 27-60, 1989.
+[1] B. Sprunt, L. Sha, and J. Lehoczky, "Aperiodic task scheduling for Hard-Real-Time systems," *Real-Time Syst*, vol. 1, no. 1, pp. 27-60, June 1989, doi: 10.1007/BF02341920.
 
-[2] J. P. Lehoczky, L. Sha, and J. K. Strosnider, "Enhanced aperiodic responsiveness in hard real-time environments," *IEEE RTSS*, pp. 261-270, 1987.
+[2] J. K. Strosnider, J. P. Lehoczky, and L. Sha, "The deferrable server algorithm for enhanced aperiodic responsiveness in hard real-time environments," *IEEE Transactions on Computers*, vol. 44, no. 1, pp. 73-91, 1995, doi: 10.1109/12.368008.
 
-[3] M. Spuri and G. Buttazzo, "Scheduling aperiodic tasks in dynamic priority systems," *Real-Time Systems*, vol. 10, no. 2, pp. 179-210, 1996.
+[3] M. Spuri and G. Buttazzo, "Scheduling aperiodic tasks in dynamic priority systems," *Real-Time Systems*, vol. 10, no. 2, pp. 179-210, Mar. 1996, doi: 10.1007/BF00360340.
 
-[4] C. L. Liu and J. W. Layland, "Scheduling algorithms for multiprogramming in a hard-real-time environment," *JACM*, vol. 20, no. 1, pp. 46-61, 1973.
+[4] C. L. Liu and J. W. Layland, "Scheduling Algorithms for Multiprogramming in a Hard-Real-Time Environment," *J. ACM*, vol. 20, no. 1, pp. 46-61, Jan. 1973, doi: 10.1145/321738.321743.
 
 ---
 
